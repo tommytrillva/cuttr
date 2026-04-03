@@ -30,7 +30,7 @@ TransportBar::TransportBar (ChopprProcessor& processor)
 
     // ---- BPM Label ----
     bpmLabel_.setText ("BPM", juce::dontSendNotification);
-    bpmLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    bpmLabel_.setFont (juce::Font (11.0f));
     bpmLabel_.setColour (juce::Label::textColourId, kDimText);
     bpmLabel_.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (bpmLabel_);
@@ -57,7 +57,7 @@ TransportBar::TransportBar (ChopprProcessor& processor)
 
     // ---- Time Sig Label ----
     timeSigLabel_.setText ("4/4", juce::dontSendNotification);
-    timeSigLabel_.setFont (juce::Font (juce::FontOptions().withHeight (14.0f)));
+    timeSigLabel_.setFont (juce::Font (14.0f));
     timeSigLabel_.setColour (juce::Label::textColourId, kDimText);
     timeSigLabel_.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (timeSigLabel_);

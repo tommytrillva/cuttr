@@ -20,7 +20,7 @@ AudioSetupPanel::AudioSetupPanel (juce::AudioDeviceManager& deviceManager,
 {
     // Title label
     titleLabel_.setText ("AUDIO SETUP", juce::dontSendNotification);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (14.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (14.0f, juce::Font::bold));
     titleLabel_.setColour (juce::Label::textColourId, kText);
     titleLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel_);

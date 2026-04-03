@@ -60,7 +60,7 @@ void WaveformDisplay::paint (juce::Graphics& g)
     {
         // Empty state label
         g.setColour (juce::Colour (0xff444466));
-        g.setFont (juce::Font (juce::FontOptions().withHeight (14.0f)));
+        g.setFont (juce::Font (14.0f));
         g.drawText ("Drop a sample or use File > Load",
                     wfBounds, juce::Justification::centred, false);
     }
@@ -300,7 +300,7 @@ void WaveformDisplay::drawTimeRuler (juce::Graphics& g)
     if (secPerBar <= 0.0 || durationSec <= 0.0)
         return;
 
-    g.setFont (juce::Font (juce::FontOptions().withHeight (10.0f)));
+    g.setFont (juce::Font (10.0f));
     g.setColour (kRulerText);
 
     const int numBars = static_cast<int> (durationSec / secPerBar) + 2;

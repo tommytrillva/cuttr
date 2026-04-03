@@ -27,7 +27,7 @@ PresetBrowser::PresetBrowser (ChopprProcessor& processor)
 {
     // Title
     titleLabel_.setText ("PRESETS", juce::dontSendNotification);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (13.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (13.0f, juce::Font::bold));
     titleLabel_.setColour (juce::Label::textColourId, kText);
     titleLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel_);
@@ -195,7 +195,7 @@ void PresetBrowser::paintListBoxItem (int row, juce::Graphics& g,
         g.fillRect (0, 0, 3, height);
     }
 
-    g.setFont (juce::Font (juce::FontOptions().withHeight (12.0f)));
+    g.setFont (juce::Font (12.0f));
     g.setColour (rowIsSelected ? kText : kDim);
 
     if (row >= 0 && row < presetNames_.size())

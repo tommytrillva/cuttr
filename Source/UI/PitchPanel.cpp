@@ -13,14 +13,14 @@ PitchPanel::PitchPanel (ChopprProcessor& processor)
 {
     // Title
     titleLabel_.setText ("PITCH", juce::dontSendNotification);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (13.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (13.0f, juce::Font::bold));
     titleLabel_.setColour (juce::Label::textColourId, kText);
     titleLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel_);
 
     // Global pitch label
     globalPitchLabel_.setText ("Global Pitch", juce::dontSendNotification);
-    globalPitchLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    globalPitchLabel_.setFont (juce::Font (11.0f));
     globalPitchLabel_.setColour (juce::Label::textColourId, kDim);
     globalPitchLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (globalPitchLabel_);
@@ -43,7 +43,7 @@ PitchPanel::PitchPanel (ChopprProcessor& processor)
 
     // Mode label
     pitchModeLabel_.setText ("Mode", juce::dontSendNotification);
-    pitchModeLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    pitchModeLabel_.setFont (juce::Font (11.0f));
     pitchModeLabel_.setColour (juce::Label::textColourId, kDim);
     pitchModeLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (pitchModeLabel_);

@@ -30,7 +30,7 @@ static void styleLabel (juce::Label& lbl,
                         juce::Colour colour = kDim)
 {
     lbl.setText (text, juce::dontSendNotification);
-    lbl.setFont (juce::Font (juce::FontOptions().withHeight (fontSize)));
+    lbl.setFont (juce::Font (fontSize));
     lbl.setColour (juce::Label::textColourId, colour);
     lbl.setJustificationType (juce::Justification::centredLeft);
 }
@@ -41,7 +41,7 @@ SliceEditorPanel::SliceEditorPanel (ChopprProcessor& processor)
 {
     // Title
     styleLabel (titleLabel_, "SLICER", 13.0f, kText);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (13.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (13.0f, juce::Font::bold));
     addAndMakeVisible (titleLabel_);
 
     // Mode label

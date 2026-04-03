@@ -13,14 +13,14 @@ TimeStretchPanel::TimeStretchPanel (ChopprProcessor& processor)
 {
     // Title
     titleLabel_.setText ("TIME STRETCH", juce::dontSendNotification);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (13.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (13.0f, juce::Font::bold));
     titleLabel_.setColour (juce::Label::textColourId, kText);
     titleLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel_);
 
     // Mode label
     modeLabel_.setText ("Mode", juce::dontSendNotification);
-    modeLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    modeLabel_.setFont (juce::Font (11.0f));
     modeLabel_.setColour (juce::Label::textColourId, kDim);
     modeLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (modeLabel_);
@@ -51,7 +51,7 @@ TimeStretchPanel::TimeStretchPanel (ChopprProcessor& processor)
 
     // Stretch ratio label
     stretchRatioLabel_.setText ("Stretch Ratio", juce::dontSendNotification);
-    stretchRatioLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    stretchRatioLabel_.setFont (juce::Font (11.0f));
     stretchRatioLabel_.setColour (juce::Label::textColourId, kDim);
     stretchRatioLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (stretchRatioLabel_);

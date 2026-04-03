@@ -13,14 +13,14 @@ ExportPanel::ExportPanel (ChopprProcessor& processor)
 {
     // Title
     titleLabel_.setText ("EXPORT", juce::dontSendNotification);
-    titleLabel_.setFont (juce::Font (juce::FontOptions().withHeight (13.0f).withStyle ("Bold")));
+    titleLabel_.setFont (juce::Font (13.0f, juce::Font::bold));
     titleLabel_.setColour (juce::Label::textColourId, kText);
     titleLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (titleLabel_);
 
     // Format label + combo
     formatLabel_.setText ("Format", juce::dontSendNotification);
-    formatLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    formatLabel_.setFont (juce::Font (11.0f));
     formatLabel_.setColour (juce::Label::textColourId, kDim);
     formatLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (formatLabel_);
@@ -37,7 +37,7 @@ ExportPanel::ExportPanel (ChopprProcessor& processor)
 
     // Bit depth label + combo
     bitDepthLabel_.setText ("Bit Depth", juce::dontSendNotification);
-    bitDepthLabel_.setFont (juce::Font (juce::FontOptions().withHeight (11.0f)));
+    bitDepthLabel_.setFont (juce::Font (11.0f));
     bitDepthLabel_.setColour (juce::Label::textColourId, kDim);
     bitDepthLabel_.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (bitDepthLabel_);

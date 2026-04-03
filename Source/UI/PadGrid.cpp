@@ -172,7 +172,7 @@ void PadGrid::drawPad (juce::Graphics& g, int padIndex)
 
     // Pad number label
     g.setColour (isSelected ? juce::Colours::white : kPadText.withAlpha (hasSlice ? 0.9f : 0.5f));
-    g.setFont (juce::Font (juce::FontOptions().withHeight (juce::jmin (bounds.getHeight() * 0.35f, 14.0f))));
+    g.setFont (juce::Font (juce::jmin (bounds.getHeight() * 0.35f, 14.0f)));
     g.drawText (juce::String (padIndex + 1),
                 bounds.toNearestInt(),
                 juce::Justification::centred,
@@ -181,7 +181,7 @@ void PadGrid::drawPad (juce::Graphics& g, int padIndex)
     // "M" / "S" indicator for mute/solo
     if (isMuted || isSolo)
     {
-        g.setFont (juce::Font (juce::FontOptions().withHeight (9.0f)));
+        g.setFont (juce::Font (9.0f));
         g.setColour (isSolo ? kPadSolo : juce::Colour (0xff888888));
         const juce::Rectangle<float> badgeBounds (bounds.getRight() - 14.0f,
                                                    bounds.getY() + 2.0f,
@@ -193,7 +193,7 @@ void PadGrid::drawPad (juce::Graphics& g, int padIndex)
     // Slice index badge (bottom-right)
     if (hasSlice)
     {
-        g.setFont (juce::Font (juce::FontOptions().withHeight (8.0f)));
+        g.setFont (juce::Font (8.0f));
         g.setColour (kPadSelected.withAlpha (0.75f));
         const juce::Rectangle<float> sliceBadge (bounds.getRight() - 16.0f,
                                                    bounds.getBottom() - 12.0f,

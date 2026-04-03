@@ -17,7 +17,7 @@ static const juce::Colour kPanelBg     { 0xff16213e };
 
 //==============================================================================
 ChopprEditor::ChopprEditor (ChopprProcessor& processor)
-    : AudioProcessorEditor (processor, kEditorWidth, kEditorHeight),
+    : AudioProcessorEditor (processor),
       processor_          (processor),
       waveformDisplay_    (processor),
       padGrid_            (processor, processor.getGridSize()),
@@ -30,6 +30,8 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
       presetBrowser_      (processor),
       audioSetupPanel_    (deviceManager_)
 {
+    setSize (kEditorWidth, kEditorHeight);
+
     // ---- Left column ----
     addAndMakeVisible (waveformDisplay_);
     addAndMakeVisible (padGrid_);
