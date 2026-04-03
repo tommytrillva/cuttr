@@ -9,7 +9,10 @@ AudioFileExporter::AudioFileExporter()
     formatManager_.registerBasicFormats();
 
 #if JUCE_USE_LAME_AUDIO_FORMAT
-    formatManager_.registerFormat (new juce::LAMEEncoderAudioFormat(), true);
+    // LAMEEncoderAudioFormat wraps the external lame command-line encoder.
+    // We pass an empty File; at runtime, if lame is not found the format
+    // simply won't produce writers and our code falls back to WAV gracefully.
+    formatManager_.registerFormat (new juce::LAMEEncoderAudioFormat (juce::File{}), true);
 #endif
 }
 
