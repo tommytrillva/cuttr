@@ -113,23 +113,29 @@ void PresetBrowser::buttonClicked (juce::Button* button)
         else
         {
             // No selection – behave like Save As
-            const juce::String name = juce::AlertWindow::showInputBox (
-                "Save Preset", "Enter preset name:", "");
-            if (name.isNotEmpty())
+            juce::AlertWindow aw ("Save Preset", "Enter preset name:",
+                                  juce::MessageBoxIconType::QuestionIcon);
+            aw.addTextEditor ("name", "");
+            aw.addButton ("OK", 1);
+            aw.addButton ("Cancel", 0);
+            if (aw.runModalLoop() == 1)
             {
-                savePresetAs (name);
-                refreshPresets();
+                const juce::String name = aw.getTextEditorContents ("name");
+                if (name.isNotEmpty()) { savePresetAs (name); refreshPresets(); }
             }
         }
     }
     else if (button == &saveAsButton_)
     {
-        const juce::String name = juce::AlertWindow::showInputBox (
-            "Save Preset As", "Enter preset name:", "");
-        if (name.isNotEmpty())
+        juce::AlertWindow aw ("Save Preset As", "Enter preset name:",
+                              juce::MessageBoxIconType::QuestionIcon);
+        aw.addTextEditor ("name", "");
+        aw.addButton ("OK", 1);
+        aw.addButton ("Cancel", 0);
+        if (aw.runModalLoop() == 1)
         {
-            savePresetAs (name);
-            refreshPresets();
+            const juce::String name = aw.getTextEditorContents ("name");
+            if (name.isNotEmpty()) { savePresetAs (name); refreshPresets(); }
         }
     }
     else if (button == &loadButton_)
