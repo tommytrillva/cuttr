@@ -47,6 +47,17 @@ void ChopprProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 {
     juce::ScopedNoDenormals noDenormals;
 
+    // --- Sync BPM from DAW transport (if a play-head is available) ---
+    if (auto* ph = getPlayHead())
+    {
+        if (const auto pos = ph->getPosition())
+        {
+            if (const auto bpm = pos->getBpm())
+                if (*bpm > 0.0)
+                    setBPM (static_cast<float> (*bpm));
+        }
+    }
+
     // We render entirely from the sample – clear the output first
     buffer.clear();
 

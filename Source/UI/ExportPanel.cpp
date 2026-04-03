@@ -27,6 +27,7 @@ ExportPanel::ExportPanel (ChopprProcessor& processor)
 
     formatComboBox_.addItem ("WAV",  1);
     formatComboBox_.addItem ("FLAC", 2);
+    formatComboBox_.addItem ("MP3",  3);
     formatComboBox_.setSelectedId (1, juce::dontSendNotification);
     formatComboBox_.setColour (juce::ComboBox::backgroundColourId,   kBg);
     formatComboBox_.setColour (juce::ComboBox::textColourId,          kText);
@@ -121,9 +122,12 @@ AudioFileExporter::ExportSettings ExportPanel::buildSettings (const juce::File& 
     settings.sampleRate  = processor_.getSampleBuffer().getSampleRate();
 
     // Format
-    settings.format = (formatComboBox_.getSelectedId() == 2)
-                      ? AudioFileExporter::Format::FLAC
-                      : AudioFileExporter::Format::WAV;
+    switch (formatComboBox_.getSelectedId())
+    {
+        case 2:  settings.format = AudioFileExporter::Format::FLAC; break;
+        case 3:  settings.format = AudioFileExporter::Format::MP3;  break;
+        default: settings.format = AudioFileExporter::Format::WAV;  break;
+    }
 
     // Bit depth
     switch (bitDepthComboBox_.getSelectedId())
@@ -146,7 +150,13 @@ void ExportPanel::doExportBuffer()
         return;
     }
 
-    const juce::String ext = (formatComboBox_.getSelectedId() == 2) ? "flac" : "wav";
+    juce::String ext;
+    switch (formatComboBox_.getSelectedId())
+    {
+        case 2:  ext = "flac"; break;
+        case 3:  ext = "mp3";  break;
+        default: ext = "wav";  break;
+    }
 
     fileChooser_ = std::make_unique<juce::FileChooser> (
         "Export Sample",
@@ -189,12 +199,18 @@ void ExportPanel::doExportSlices()
         return;
     }
 
-    const juce::String ext = (formatComboBox_.getSelectedId() == 2) ? "flac" : "wav";
+    juce::String ext2;
+    switch (formatComboBox_.getSelectedId())
+    {
+        case 2:  ext2 = "flac"; break;
+        case 3:  ext2 = "mp3";  break;
+        default: ext2 = "wav";  break;
+    }
 
     fileChooser_ = std::make_unique<juce::FileChooser> (
         "Export Slices – choose output file template",
         juce::File::getSpecialLocation (juce::File::userDocumentsDirectory),
-        "*." + ext);
+        "*." + ext2);
 
     fileChooser_->launchAsync (
         juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,

@@ -23,7 +23,15 @@ public:
     enum class Format
     {
         WAV,   ///< Uncompressed PCM wave file (.wav)
-        FLAC   ///< Losslessly compressed FLAC file (.flac)
+        FLAC,  ///< Losslessly compressed FLAC file (.flac)
+        MP3    ///< MPEG Layer-3 (requires LAME encoder at runtime)
+    };
+
+    enum class Mp3Quality
+    {
+        Kbps128 = 128,
+        Kbps192 = 192,
+        Kbps320 = 320
     };
 
     enum class BitDepth
@@ -48,6 +56,9 @@ public:
         /** When true the buffer is scaled so its peak level is 0 dBFS before
          *  writing.  Has no effect on silent buffers. */
         bool normalise = false;
+
+        /** MP3 target bitrate (ignored for WAV/FLAC). */
+        Mp3Quality mp3Quality = Mp3Quality::Kbps320;
     };
 
     //==========================================================================

@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "../Common.h"
+#include <functional>
 
 class ChopprProcessor;
 
@@ -48,6 +49,13 @@ public:
     /** Scan the preset directory and repopulate presetNames_. */
     void refreshPresets();
 
+    /** Save to the currently selected preset; prompt for a name if nothing is
+     *  selected (same behaviour as clicking Save). */
+    void saveCurrentOrAs();
+
+    /** Always prompt for a new name then save (same as clicking Save As). */
+    void saveAsNew();
+
 private:
     //==========================================================================
     /** Return the CHOPPR preset directory (creates it if absent). */
@@ -64,6 +72,11 @@ private:
 
     /** Delete the preset file whose display name equals @p name. */
     void deletePreset (const juce::String& name);
+
+    /** Show a non-blocking name-entry overlay and invoke @p callback with the
+     *  entered string (empty string if the user cancels). */
+    void promptForName (const juce::String& title,
+                        std::function<void(juce::String)> callback);
 
     //==========================================================================
     ChopprProcessor& processor_;

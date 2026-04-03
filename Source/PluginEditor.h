@@ -43,8 +43,9 @@ public:
 
     //==========================================================================
     // juce::Component
-    void paint   (juce::Graphics& g) override;
-    void resized () override;
+    void paint      (juce::Graphics& g) override;
+    void resized    () override;
+    bool keyPressed (const juce::KeyPress& key) override;
 
     //==========================================================================
     // juce::ChangeListener
@@ -64,6 +65,9 @@ private:
     //==========================================================================
     /** Synchronise the pad grid's visual selection state to selectedPad_. */
     void updatePadGridSelection();
+
+    /** Add a slice marker at the current metronome playhead position. */
+    void dropSliceAtPlayhead();
 
     //==========================================================================
     ChopprProcessor& processor_;

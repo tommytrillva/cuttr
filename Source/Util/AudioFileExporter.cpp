@@ -7,6 +7,10 @@
 AudioFileExporter::AudioFileExporter()
 {
     formatManager_.registerBasicFormats();
+
+#if JUCE_USE_LAME_AUDIO_FORMAT
+    formatManager_.registerFormat (new juce::LAMEEncoderAudioFormat(), true);
+#endif
 }
 
 //==============================================================================
@@ -43,11 +47,30 @@ AudioFileExporter::createWriter (const juce::File&     file,
     const juce::String ext = file.getFileExtension().toLowerCase();
 
     if (ext == ".wav" || (ext.isEmpty() && settings.format == Format::WAV))
+    {
         format = formatManager_.findFormatForFileExtension ("wav");
+    }
     else if (ext == ".flac" || (ext.isEmpty() && settings.format == Format::FLAC))
+    {
         format = formatManager_.findFormatForFileExtension ("flac");
+    }
+    else if (ext == ".mp3" || (ext.isEmpty() && settings.format == Format::MP3))
+    {
+#if JUCE_USE_LAME_AUDIO_FORMAT
+        format = formatManager_.findFormatForFileExtension ("mp3");
+#endif
+        if (format == nullptr)
+        {
+            // LAME not available at runtime – fall back silently to WAV
+            errorMsg = "LAME encoder not found; exporting as WAV instead.";
+            format = formatManager_.findFormatForFileExtension ("wav");
+            // caller must handle the non-empty errorMsg as a warning, not a hard error
+        }
+    }
     else
+    {
         format = formatManager_.findFormatForFileExtension (ext.trimCharactersAtStart ("."));
+    }
 
     if (format == nullptr)
     {
@@ -109,7 +132,11 @@ bool AudioFileExporter::exportBuffer (const juce::AudioBuffer<float>& buffer,
     juce::File outputFile = settings.outputFile;
     {
         const juce::String ext = outputFile.getFileExtension().toLowerCase();
-        const juce::String expectedExt = (settings.format == Format::FLAC) ? ".flac" : ".wav";
+        juce::String expectedExt;
+        if (settings.format == Format::FLAC)       expectedExt = ".flac";
+        else if (settings.format == Format::MP3)   expectedExt = ".mp3";
+        else                                        expectedExt = ".wav";
+
         if (ext != expectedExt)
             outputFile = outputFile.withFileExtension (expectedExt);
     }
@@ -176,7 +203,10 @@ bool AudioFileExporter::exportSlices (const juce::AudioBuffer<float>&  buffer,
     }
 
     // Derive naming components from the template file in settings
-    const juce::String expectedExt = (settings.format == Format::FLAC) ? ".flac" : ".wav";
+    juce::String expectedExt;
+    if (settings.format == Format::FLAC)       expectedExt = ".flac";
+    else if (settings.format == Format::MP3)   expectedExt = ".mp3";
+    else                                        expectedExt = ".wav";
     const juce::File   templateFile = settings.outputFile.withFileExtension (expectedExt);
     const juce::File   parentDir    = templateFile.getParentDirectory();
     const juce::String baseName     = templateFile.getFileNameWithoutExtension();

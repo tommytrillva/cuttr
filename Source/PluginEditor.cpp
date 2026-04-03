@@ -31,6 +31,7 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
       audioSetupPanel_    (deviceManager_)
 {
     setSize (kEditorWidth, kEditorHeight);
+    setWantsKeyboardFocus (true);
 
     // ---- Left column ----
     addAndMakeVisible (waveformDisplay_);
@@ -132,6 +133,98 @@ bool ChopprEditor::isInterestedInFileDrag (const juce::StringArray& files)
            ext == ".aiff" || ext == ".flac" || ext == ".ogg";
 }
 
+//==============================================================================
+bool ChopprEditor::keyPressed (const juce::KeyPress& key)
+{
+    const bool ctrl  = key.getModifiers().isCommandDown();
+    const bool shift = key.getModifiers().isShiftDown();
+    const int  kc    = key.getKeyCode();
+
+    // Space – Play / Stop
+    if (! ctrl && kc == juce::KeyPress::spaceKey)
+    {
+        processor_.setPlaying (! processor_.isPlaying());
+        transportBar_.refresh();
+        return true;
+    }
+    // R – Toggle recording
+    if (! ctrl && (kc == 'R' || kc == 'r'))
+    {
+        if (processor_.isRecording())  processor_.stopRecording();
+        else                           processor_.startRecording();
+        transportBar_.refresh();
+        return true;
+    }
+    // M – Drop slice marker at playhead
+    if (! ctrl && (kc == 'M' || kc == 'm'))
+    {
+        dropSliceAtPlayhead();
+        return true;
+    }
+    // T – Tap Tempo
+    if (! ctrl && (kc == 'T' || kc == 't'))
+    {
+        processor_.tapTempo();
+        transportBar_.refresh();
+        return true;
+    }
+    // [ – Set loop-in at playhead
+    if (! ctrl && kc == '[')
+    {
+        processor_.setLoopIn ((int) processor_.getMetronome().getPlayheadPositionSamples());
+        return true;
+    }
+    // ] – Set loop-out at playhead
+    if (! ctrl && kc == ']')
+    {
+        processor_.setLoopOut ((int) processor_.getMetronome().getPlayheadPositionSamples());
+        return true;
+    }
+    // Z – Undo last manual slice marker
+    if (! ctrl && (kc == 'Z' || kc == 'z'))
+    {
+        processor_.getSliceEngine().undoLastSlice();
+        processor_.sendChangeMessage();
+        return true;
+    }
+    // Ctrl+E – Open Export panel
+    if (ctrl && ! shift && (kc == 'E' || kc == 'e'))
+    {
+        rightPanel_.setCurrentTabIndex (3);
+        return true;
+    }
+    // Ctrl+S – Save preset (overwrite selected, or prompt if none selected)
+    if (ctrl && ! shift && (kc == 'S' || kc == 's'))
+    {
+        presetBrowser_.saveCurrentOrAs();
+        return true;
+    }
+    // Ctrl+Shift+S – Save preset as new
+    if (ctrl && shift && (kc == 'S' || kc == 's'))
+    {
+        presetBrowser_.saveAsNew();
+        return true;
+    }
+
+    return false;
+}
+
+void ChopprEditor::dropSliceAtPlayhead()
+{
+    if (! processor_.getSampleBuffer().hasAudio())
+        return;
+
+    const int posSamples = static_cast<int> (
+        processor_.getMetronome().getPlayheadPositionSamples());
+
+    if (posSamples >= 0)
+    {
+        processor_.getSliceEngine().addSlice (posSamples);
+        processor_.sendChangeMessage();
+    }
+}
+
+//==============================================================================
 void ChopprEditor::filesDropped (const juce::StringArray& files, int /*x*/, int /*y*/)
 {
     if (files.size() != 1)

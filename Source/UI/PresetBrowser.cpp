@@ -1,6 +1,108 @@
 #include "PresetBrowser.h"
 #include "../PluginProcessor.h"
 
+//==============================================================================
+/**
+ * NamePromptOverlay
+ *
+ * A non-blocking, self-deleting overlay that asks the user to type a name.
+ * Add it to a parent Component; it removes and deletes itself on dismiss.
+ */
+class NamePromptOverlay final : public juce::Component
+{
+public:
+    using Callback = std::function<void(juce::String)>;
+
+    NamePromptOverlay (const juce::String& title, Callback callback)
+        : title_ (title), callback_ (std::move (callback))
+    {
+        nameField_.setTextToShowWhenEmpty ("Enter name...", juce::Colours::grey);
+        nameField_.onReturnKey  = [this] { confirm(); };
+        nameField_.onEscapeKey  = [this] { dismiss(); };
+        nameField_.setColour (juce::TextEditor::backgroundColourId, juce::Colour (0xff0d0d1f));
+        nameField_.setColour (juce::TextEditor::textColourId,        juce::Colour (0xffeeeeee));
+        nameField_.setColour (juce::TextEditor::outlineColourId,     juce::Colour (0xff333355));
+        nameField_.setColour (juce::TextEditor::focusedOutlineColourId, juce::Colour (0xffe94560));
+        addAndMakeVisible (nameField_);
+
+        okButton_.setColour     (juce::TextButton::buttonColourId,  juce::Colour (0xffe94560).darker (0.3f));
+        okButton_.setColour     (juce::TextButton::textColourOffId, juce::Colour (0xffeeeeee));
+        cancelButton_.setColour (juce::TextButton::buttonColourId,  juce::Colour (0xff16213e));
+        cancelButton_.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffeeeeee));
+        okButton_.onClick     = [this] { confirm(); };
+        cancelButton_.onClick = [this] { dismiss(); };
+        addAndMakeVisible (okButton_);
+        addAndMakeVisible (cancelButton_);
+
+        setInterceptsMouseClicks (true, true);
+    }
+
+    static void show (juce::Component* parent,
+                      const juce::String& title,
+                      Callback cb)
+    {
+        auto* overlay = new NamePromptOverlay (title, std::move (cb));
+        parent->addAndMakeVisible (overlay);
+        overlay->setBounds (parent->getLocalBounds());
+        overlay->nameField_.grabKeyboardFocus();
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        g.fillAll (juce::Colours::black.withAlpha (0.65f));
+
+        const auto card = getLocalBounds().withSizeKeepingCentre (300, 140);
+        g.setColour (juce::Colour (0xff1e2040));
+        g.fillRoundedRectangle (card.toFloat(), 8.0f);
+        g.setColour (juce::Colour (0xffe94560));
+        g.drawRoundedRectangle (card.toFloat(), 8.0f, 1.5f);
+
+        g.setColour (juce::Colour (0xffeeeeee));
+        g.setFont (juce::Font (13.0f, juce::Font::bold));
+        g.drawText (title_,
+                    card.withHeight (42).reduced (14, 0).toFloat(),
+                    juce::Justification::centredLeft);
+    }
+
+    void resized() override
+    {
+        auto card = getLocalBounds().withSizeKeepingCentre (300, 140);
+        card.removeFromTop (44);
+        nameField_.setBounds (card.removeFromTop (32).reduced (12, 0));
+        card.removeFromTop (8);
+        auto btnRow = card.removeFromTop (32).reduced (12, 0);
+        cancelButton_.setBounds (btnRow.removeFromRight (80));
+        btnRow.removeFromRight (6);
+        okButton_.setBounds     (btnRow.removeFromRight (80));
+    }
+
+private:
+    void confirm()
+    {
+        if (callback_) callback_ (nameField_.getText().trim());
+        close();
+    }
+    void dismiss()
+    {
+        if (callback_) callback_ ({});
+        close();
+    }
+    void close()
+    {
+        if (auto* p = getParentComponent())
+            p->removeChildComponent (this);
+        delete this;
+    }
+
+    juce::String     title_;
+    Callback         callback_;
+    juce::TextEditor nameField_;
+    juce::TextButton okButton_     { "OK"     };
+    juce::TextButton cancelButton_ { "Cancel" };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (NamePromptOverlay)
+};
+
 static const juce::Colour kBg       = juce::Colour (0xff1a1a2e);
 static const juce::Colour kSurface  = juce::Colour (0xff16213e);
 static const juce::Colour kAccent   = juce::Colour (0xffe94560);
@@ -113,30 +215,12 @@ void PresetBrowser::buttonClicked (juce::Button* button)
         else
         {
             // No selection – behave like Save As
-            juce::AlertWindow aw ("Save Preset", "Enter preset name:",
-                                  juce::MessageBoxIconType::QuestionIcon);
-            aw.addTextEditor ("name", "");
-            aw.addButton ("OK", 1);
-            aw.addButton ("Cancel", 0);
-            if (aw.runModalLoop() == 1)
-            {
-                const juce::String name = aw.getTextEditorContents ("name");
-                if (name.isNotEmpty()) { savePresetAs (name); refreshPresets(); }
-            }
+            saveAsNew();
         }
     }
     else if (button == &saveAsButton_)
     {
-        juce::AlertWindow aw ("Save Preset As", "Enter preset name:",
-                              juce::MessageBoxIconType::QuestionIcon);
-        aw.addTextEditor ("name", "");
-        aw.addButton ("OK", 1);
-        aw.addButton ("Cancel", 0);
-        if (aw.runModalLoop() == 1)
-        {
-            const juce::String name = aw.getTextEditorContents ("name");
-            if (name.isNotEmpty()) { savePresetAs (name); refreshPresets(); }
-        }
+        saveAsNew();
     }
     else if (button == &loadButton_)
     {
@@ -277,4 +361,41 @@ void PresetBrowser::loadPreset (const juce::String& name)
 void PresetBrowser::deletePreset (const juce::String& name)
 {
     presetFile (name).deleteFile();
+}
+
+//==============================================================================
+void PresetBrowser::saveCurrentOrAs()
+{
+    const int selected = presetListBox_.getSelectedRow();
+    if (selected >= 0 && selected < presetNames_.size())
+    {
+        savePresetAs (presetNames_[selected]);
+    }
+    else
+    {
+        saveAsNew();
+    }
+}
+
+void PresetBrowser::saveAsNew()
+{
+    promptForName ("Save Preset As", [this] (const juce::String& name)
+    {
+        if (name.isNotEmpty())
+        {
+            savePresetAs (name);
+            refreshPresets();
+        }
+    });
+}
+
+void PresetBrowser::promptForName (const juce::String& title,
+                                    std::function<void(juce::String)> callback)
+{
+    // Show the overlay on the top-level editor so it covers the entire window.
+    auto* root = getTopLevelComponent();
+    if (root == nullptr)
+        root = this;
+
+    NamePromptOverlay::show (root, title, std::move (callback));
 }

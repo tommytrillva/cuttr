@@ -8,6 +8,7 @@
 void SliceEngine::setSlices (std::vector<SlicePoint> slices)
 {
     slices_ = std::move (slices);
+    manualSlicePositions_.clear();
     sortAndDeduplicate();
 }
 
@@ -17,6 +18,7 @@ void SliceEngine::addSlice (int samplePosition)
     sp.samplePosition = samplePosition;
     slices_.push_back (sp);
     sortAndDeduplicate();
+    manualSlicePositions_.push_back (samplePosition); // track for undo
 }
 
 void SliceEngine::removeSlice (int index)
@@ -51,7 +53,29 @@ void SliceEngine::clearSlices()
                         [] (const SlicePoint& sp) { return ! sp.isLocked; }),
         slices_.end());
 
+    manualSlicePositions_.clear();
     sortAndDeduplicate();
+}
+
+void SliceEngine::undoLastSlice()
+{
+    while (! manualSlicePositions_.empty())
+    {
+        const int target = manualSlicePositions_.back();
+        manualSlicePositions_.pop_back();
+
+        // Find and remove the unlocked slice nearest to that position
+        for (int i = 0; i < static_cast<int> (slices_.size()); ++i)
+        {
+            if (slices_[static_cast<size_t> (i)].samplePosition == target
+                && ! slices_[static_cast<size_t> (i)].isLocked)
+            {
+                slices_.erase (slices_.begin() + i);
+                return;
+            }
+        }
+        // Slice may have been moved by deduplication – keep popping
+    }
 }
 
 //==============================================================================

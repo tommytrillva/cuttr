@@ -36,6 +36,10 @@ public:
     /** Remove all non-locked slices (locked slices are preserved). */
     void clearSlices();
 
+    /** Remove the most recently manually-added slice (Ctrl+Z / Z key).
+     *  Does nothing if no manual slices remain. */
+    void undoLastSlice();
+
     //==========================================================================
     /** Automatically detect slices.
      *  @param buffer      Audio to analyse (not modified).
@@ -65,6 +69,9 @@ public:
 private:
     //==========================================================================
     std::vector<SlicePoint> slices_;
+
+    /** Stack of sample positions added via addSlice() – used for undo. */
+    std::vector<int> manualSlicePositions_;
 
     /** Sort by samplePosition, remove entries within 100 samples of each other,
      *  and ensure the very first slice is at position 0. */

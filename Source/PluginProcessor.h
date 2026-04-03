@@ -132,6 +132,12 @@ public:
     bool isPlaying()  const { return isPlaying_; }
     void setPlaying (bool playing);
 
+    // Loop markers (sample positions; -1 = not set)
+    void setLoopIn  (int samples) { loopInSamples_  = samples; sendChangeMessage(); }
+    void setLoopOut (int samples) { loopOutSamples_ = samples; sendChangeMessage(); }
+    int  getLoopIn()  const { return loopInSamples_;  }
+    int  getLoopOut() const { return loopOutSamples_; }
+
     bool isRecording() const { return loopRecorder_.isRecording(); }
 
     /** Arm the loop recorder.
@@ -193,6 +199,8 @@ private:
     SliceMode currentSliceMode_  { SliceMode::Transient };
     float     globalPitchOffset_ { 0.0f };
     bool      isPlaying_         { false };
+    int       loopInSamples_     { -1 };
+    int       loopOutSamples_    { -1 };
 
     //==========================================================================
     // Listener infrastructure
