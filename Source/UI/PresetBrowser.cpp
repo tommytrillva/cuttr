@@ -113,32 +113,24 @@ void PresetBrowser::buttonClicked (juce::Button* button)
         else
         {
             // No selection – behave like Save As
-            juce::AlertWindow::showInputBoxAsync (
-                "Save Preset", "Enter preset name:", "",
-                nullptr,
-                [this] (const juce::String& name)
-                {
-                    if (name.isNotEmpty())
-                    {
-                        savePresetAs (name);
-                        refreshPresets();
-                    }
-                });
+            const juce::String name = juce::AlertWindow::showInputBox (
+                "Save Preset", "Enter preset name:", "");
+            if (name.isNotEmpty())
+            {
+                savePresetAs (name);
+                refreshPresets();
+            }
         }
     }
     else if (button == &saveAsButton_)
     {
-        juce::AlertWindow::showInputBoxAsync (
-            "Save Preset As", "Enter preset name:", "",
-            nullptr,
-            [this] (const juce::String& name)
-            {
-                if (name.isNotEmpty())
-                {
-                    savePresetAs (name);
-                    refreshPresets();
-                }
-            });
+        const juce::String name = juce::AlertWindow::showInputBox (
+            "Save Preset As", "Enter preset name:", "");
+        if (name.isNotEmpty())
+        {
+            savePresetAs (name);
+            refreshPresets();
+        }
     }
     else if (button == &loadButton_)
     {
