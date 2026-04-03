@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc \"C:\\\\Users\\\\trill\\\\Downloads\\\\CHOPPR_PRD.docx\" -o /tmp/choppr_prd.md)",
+      "Bash(python scripts/office/unpack.py \"C:/Users/trill/Downloads/CHOPPR_PRD.docx\" /tmp/choppr_prd_unpacked/)",
+      "Bash(python \"C:/Users/trill/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/fbc789c9-dd41-4435-8411-4bf86251ad2b/9b723823-530b-4826-8d2b-742d91b5464e/skills/docx/scripts/office/unpack.py\" \"C:/Users/trill/Downloads/CHOPPR_PRD.docx\" /tmp/choppr_prd_unpacked/)",
+      "Bash(pip install:*)",
+      "WebFetch(domain:pin.it)",
+      "WebFetch(domain:api.pinterest.com)",
+      "WebFetch(domain:www.pinterest.com)",
+      "Bash(grep -E \"\\\\.\\(h|cpp|c|json|cmake|md|txt\\)$\")",
+      "Bash(git -C /c/Users/trill/choppr log --oneline -20)",
+      "Bash(find C:Userstrillchoppr -type f -name *.md)",
+      "Bash(find C:/Users/trill/choppr -type f \\\\\\(-name *.h -o -name *.hpp -o -name *.cpp -o -name *.c -o -name *.juce \\\\\\))",
+      "Read(//c/tmp/**)",
+      "Bash(python3:*)"
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+name: Build CHOPPR
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-windows:
+    name: Windows (MSVC)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache JUCE FetchContent
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: juce-7.0.12-${{ runner.os }}
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -S . `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_CXX_STANDARD=17
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHOPPR-VST3-Windows
+          path: build/CHOPPR_artefacts/Release/VST3/
+          if-no-files-found: warn
