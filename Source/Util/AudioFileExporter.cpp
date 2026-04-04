@@ -41,36 +41,32 @@ juce::StringPairArray AudioFileExporter::buildWavMetadata (const ExportSettings&
 {
     juce::StringPairArray meta;
 
-    // ACID tempo chunk — read by Ableton Live, Logic Pro, Pro Tools, etc.
+    // ACID tempo chunk — WavAudioFormat::acidTempo is the only ACID key
+    // exposed as a static const in JUCE 7.  Ableton, Logic and Pro Tools all
+    // read this field to identify the file's BPM.
     if (settings.bpm > 0.0f)
-    {
-        meta.set (juce::WavAudioFormat::acidTempo,
-                  juce::String (settings.bpm, 4));
-        meta.set (juce::WavAudioFormat::acidIsOneShot, "0");
-        meta.set (juce::WavAudioFormat::acidNumBeats,  "4");
-    }
+        meta.set (juce::WavAudioFormat::acidTempo, juce::String (settings.bpm, 4));
 
-    // Broadcast WAV description fields (professional convention).
-    meta.set (juce::WavAudioFormat::bextDescription,   "Exported by CHOPPR");
-    meta.set (juce::WavAudioFormat::bextCodingHistory, "CHOPPR VST3");
+    // Broadcast WAV (BWF) description — use the literal key strings that
+    // JUCE 7's WavAudioFormat recognises internally.
+    meta.set ("bwav description",    "Exported by CHOPPR");
+    meta.set ("bwav coding history", "CHOPPR VST3");
 
-    // Cue points (slice markers).
-    // JUCE WavAudioFormat writes a 'cue ' chunk when these keys are present.
-    // Keys follow the pattern: "CueIdentifier0", "CueOrder0", "CueLabel0", "CueOffset0"
-    // with a leading "NumCuePoints" count key.
+    // Cue points: JUCE 7 WavAudioFormat writes a 'cue ' chunk when the key
+    // "NumCuePoints" plus per-cue "CueIdentifier<n>" / "CueOffset<n>" pairs
+    // are present (literal strings — no static const for these in JUCE 7).
     if (!settings.cuePoints.empty())
     {
         const int numCues = static_cast<int> (settings.cuePoints.size());
-        meta.set (juce::WavAudioFormat::cueNumCuePoints, juce::String (numCues));
+        meta.set ("NumCuePoints", juce::String (numCues));
 
         for (int i = 0; i < numCues; ++i)
         {
             const juce::String idx (i);
-            meta.set (juce::WavAudioFormat::cueIdentifier + idx, juce::String (i + 1));
-            meta.set (juce::WavAudioFormat::cueOrder      + idx, juce::String (i));
-            meta.set (juce::WavAudioFormat::cueLabel      + idx,
-                      "Slice " + juce::String (i + 1));
-            meta.set (juce::WavAudioFormat::cueOffset     + idx,
+            meta.set ("CueIdentifier" + idx, juce::String (i + 1));
+            meta.set ("CueOrder"      + idx, juce::String (i));
+            meta.set ("CueLabel"      + idx, "Slice " + juce::String (i + 1));
+            meta.set ("CueOffset"     + idx,
                       juce::String (settings.cuePoints[static_cast<size_t> (i)]));
         }
     }
