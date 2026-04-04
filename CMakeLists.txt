@@ -37,6 +37,7 @@ set(CHOPPR_SOURCES
     Source/UI/AudioSetupPanel.cpp
     Source/UI/ExportPanel.cpp
     Source/UI/PresetBrowser.cpp
+    Source/UI/MidiMonitorPanel.cpp
     Source/State/StateManager.cpp
     Source/Util/BPMDetector.cpp
     Source/Util/TransientDetector.cpp

@@ -13,7 +13,9 @@ const juce::Colour WaveformDisplay::kLoopRegion     = juce::Colour (0xff3388cc).
 const juce::Colour WaveformDisplay::kRulerBg        = juce::Colour (0xff0f0f1e);
 const juce::Colour WaveformDisplay::kRulerText      = juce::Colour (0xff888888);
 
-static constexpr int kRulerHeight = 18;
+static constexpr int   kRulerHeight = 18;
+static constexpr float kSnapPixels  = 8.0f;
+static constexpr float kLoopHandleSnapPixels = 6.0f;
 
 //==============================================================================
 WaveformDisplay::WaveformDisplay (ChopprProcessor& processor)
@@ -32,22 +34,24 @@ WaveformDisplay::~WaveformDisplay()
 //==============================================================================
 void WaveformDisplay::paint (juce::Graphics& g)
 {
-    const auto bounds = getLocalBounds();
+    const auto bounds  = getLocalBounds();
+    const int  rulerH  = kRulerHeight;
+    const auto wfArea  = bounds.withTrimmedTop (rulerH);
 
     // Background
     g.fillAll (kBackground);
 
-    const int rulerH   = kRulerHeight;
-    const auto wfBounds = bounds.withTrimmedTop (rulerH);
+    // --- Feature 5: beat/bar grid lines (drawn first, behind everything) ---
+    drawBeatGrid (g, wfArea);
 
-    // Loop region (below ruler)
+    // Loop region (below ruler, above waveform so alpha shading shows through)
     drawLoopRegion (g);
 
     // Waveform
     const auto& sampleBuf = processor_.getSampleBuffer();
     if (sampleBuf.hasAudio())
     {
-        if (waveformPathDirty_ || cachedWidth_ != wfBounds.getWidth() || cachedHeight_ != wfBounds.getHeight())
+        if (waveformPathDirty_ || cachedWidth_ != wfArea.getWidth() || cachedHeight_ != wfArea.getHeight())
             buildWaveformPath();
 
         g.setColour (kWaveformFill);
@@ -62,10 +66,10 @@ void WaveformDisplay::paint (juce::Graphics& g)
         g.setColour (juce::Colour (0xff444466));
         g.setFont (juce::Font (14.0f));
         g.drawText ("Drop a sample or use File > Load",
-                    wfBounds, juce::Justification::centred, false);
+                    wfArea, juce::Justification::centred, false);
     }
 
-    // Time ruler
+    // Time ruler (drawn on top so it covers grid/waveform at the top edge)
     drawTimeRuler (g);
 
     // Slice markers
@@ -91,21 +95,82 @@ void WaveformDisplay::mouseDown (const juce::MouseEvent& event)
     if (event.y < kRulerHeight)
         return;
 
-    const double norm = xToNorm (static_cast<float> (event.x));
     const int totalSamples = sampleBuf.getNumSamples();
-    const int clickSample  = juce::roundToInt (norm * static_cast<double> (totalSamples));
+
+    // --- Feature 4: check for loop handle drag ---
+    if (!event.mods.isRightButtonDown())
+    {
+        const float loopInX  = normToX (loopStart_);
+        const float loopOutX = normToX (loopEnd_);
+
+        if (std::abs (static_cast<float> (event.x) - loopInX) < kLoopHandleSnapPixels)
+        {
+            loopDragTarget_ = LoopDragTarget::LoopIn;
+            return;
+        }
+        if (std::abs (static_cast<float> (event.x) - loopOutX) < kLoopHandleSnapPixels)
+        {
+            loopDragTarget_ = LoopDragTarget::LoopOut;
+            return;
+        }
+    }
+
+    // --- Feature 3: right-click context menu on slice markers ---
+    if (event.mods.isRightButtonDown())
+    {
+        const int sliceIdx = findSliceNear (event.x, kSnapPixels);
+        if (sliceIdx >= 0)
+        {
+            juce::PopupMenu menu;
+            menu.addItem (1, "Delete Slice");
+            menu.addItem (2, "Set as Loop In");
+            menu.addItem (3, "Set as Loop Out");
+            menu.addItem (4, "Assign to Pad...");
+
+            menu.showMenuAsync (juce::PopupMenu::Options{}, [this, sliceIdx] (int result)
+            {
+                if (result == 1)
+                {
+                    processor_.getSliceEngine().removeSlice (sliceIdx);
+                    if (selectedSlice_ == sliceIdx)
+                        selectedSlice_ = -1;
+                    else if (selectedSlice_ > sliceIdx)
+                        --selectedSlice_;
+                    processor_.sendChangeMessage();
+                }
+                if (result == 2)
+                {
+                    processor_.setLoopIn (getSliceSamplePos (sliceIdx));
+                }
+                if (result == 3)
+                {
+                    processor_.setLoopOut (getSliceSamplePos (sliceIdx));
+                }
+                // result == 4: assign to pad – TODO
+                repaint();
+            });
+            return;
+        }
+        return; // right-click away from a slice – do nothing
+    }
+
+    // Left-click from here on
+    const double norm       = xToNorm (static_cast<float> (event.x));
+    const int    clickSample = juce::roundToInt (norm * static_cast<double> (totalSamples));
 
     // Check if an existing slice is near the click
     const auto& slices = processor_.getSliceEngine().getSlices();
-    const float snapPixels = 8.0f;
 
     for (int i = 0; i < static_cast<int> (slices.size()); ++i)
     {
         const float sliceX = normToX (static_cast<double> (slices[i].samplePosition)
                                       / static_cast<double> (totalSamples));
-        if (std::abs (sliceX - static_cast<float> (event.x)) < snapPixels)
+        if (std::abs (sliceX - static_cast<float> (event.x)) < kSnapPixels)
         {
-            selectedSlice_ = i;
+            // --- Feature 2: begin drag ---
+            draggedSliceIndex_ = i;
+            dragStartX_        = event.x;
+            selectedSlice_     = i;
             repaint();
             return;
         }
@@ -117,6 +182,66 @@ void WaveformDisplay::mouseDown (const juce::MouseEvent& event)
     repaint();
 }
 
+//==============================================================================
+// Feature 2: drag slice markers
+void WaveformDisplay::mouseDrag (const juce::MouseEvent& event)
+{
+    // --- Feature 4: drag loop handles ---
+    if (loopDragTarget_ != LoopDragTarget::None)
+    {
+        const int totalSamples = processor_.getSampleBuffer().getNumSamples();
+        if (totalSamples > 0)
+        {
+            const double normalised = juce::jlimit (0.0, 1.0,
+                static_cast<double> (event.x) / static_cast<double> (getWidth()));
+            const int samplePos = static_cast<int> (normalised * totalSamples);
+
+            if (loopDragTarget_ == LoopDragTarget::LoopIn)
+            {
+                loopStart_ = normalised;
+                processor_.setLoopIn (samplePos);
+            }
+            else
+            {
+                loopEnd_ = normalised;
+                processor_.setLoopOut (samplePos);
+            }
+            repaint();
+        }
+        return;
+    }
+
+    // --- Feature 2: drag slice marker ---
+    if (draggedSliceIndex_ < 0)
+        return;
+
+    const int totalSamples = processor_.getSampleBuffer().getNumSamples();
+    if (totalSamples <= 0)
+        return;
+
+    const int newSamplePos = juce::jlimit (0, totalSamples - 1,
+        static_cast<int> (static_cast<double> (event.x)
+                          / static_cast<double> (getWidth())
+                          * static_cast<double> (totalSamples)));
+
+    processor_.getSliceEngine().moveSlice (draggedSliceIndex_, newSamplePos);
+    repaint();
+}
+
+//==============================================================================
+void WaveformDisplay::mouseUp (const juce::MouseEvent& /*event*/)
+{
+    if (draggedSliceIndex_ >= 0)
+    {
+        // Finalise the drag – notify listeners so state can be saved
+        processor_.sendChangeMessage();
+        draggedSliceIndex_ = -1;
+    }
+
+    loopDragTarget_ = LoopDragTarget::None;
+}
+
+//==============================================================================
 void WaveformDisplay::mouseDoubleClick (const juce::MouseEvent& event)
 {
     const auto& sampleBuf = processor_.getSampleBuffer();
@@ -126,15 +251,14 @@ void WaveformDisplay::mouseDoubleClick (const juce::MouseEvent& event)
     if (event.y < kRulerHeight)
         return;
 
-    const auto& slices      = processor_.getSliceEngine().getSlices();
     const int   totalSamples = sampleBuf.getNumSamples();
-    const float snapPixels   = 8.0f;
+    const auto& slices       = processor_.getSliceEngine().getSlices();
 
     for (int i = 0; i < static_cast<int> (slices.size()); ++i)
     {
         const float sliceX = normToX (static_cast<double> (slices[i].samplePosition)
                                       / static_cast<double> (totalSamples));
-        if (std::abs (sliceX - static_cast<float> (event.x)) < snapPixels)
+        if (std::abs (sliceX - static_cast<float> (event.x)) < kSnapPixels)
         {
             processor_.getSliceEngine().removeSlice (i);
             if (selectedSlice_ == i)
@@ -158,17 +282,47 @@ void WaveformDisplay::changeListenerCallback (juce::ChangeBroadcaster*)
 //==============================================================================
 void WaveformDisplay::timerCallback()
 {
-    // Update playhead from processor if playing
-    if (processor_.isPlaying())
+    // --- Feature 1: animated playhead ---
+    // Sync loop points from processor state
+    const auto& sampleBuf = processor_.getSampleBuffer();
+    const int   total     = sampleBuf.getNumSamples();
+
+    if (total > 0)
     {
-        const auto& sampleBuf = processor_.getSampleBuffer();
-        if (sampleBuf.hasAudio())
+        // Feature 4: keep displayed loop range in sync with processor
+        const int loopIn  = processor_.getLoopIn();
+        const int loopOut = processor_.getLoopOut();
+        if (loopIn  >= 0) loopStart_ = static_cast<double> (loopIn)  / total;
+        if (loopOut >= 0) loopEnd_   = static_cast<double> (loopOut) / total;
+
+        if (processor_.isPlaying())
         {
-            // Read the current playback position from the metronome / sample position.
-            // We expose what we can from the public API: use processor_.getMetronome()
-            // to infer beat position and map it to a normalised waveform position.
-            // As a fallback we keep the position static when we can't determine it.
-            // (A fuller implementation would expose a getCurrentSamplePosition() method.)
+            // Use the metronome's running sample counter as the playhead source.
+            // getPlayheadPositionSamples() returns absolute samples elapsed since
+            // the last reset(), which mirrors the sample playback position when the
+            // plugin is driving the metronome from processBlock.
+            const double currentSample = processor_.getMetronome().getPlayheadPositionSamples();
+            const double newPos = juce::jlimit (0.0, 1.0,
+                currentSample / static_cast<double> (total));
+
+            if (newPos != lastPlayheadPos_)
+            {
+                playheadPos_     = newPos;
+                lastPlayheadPos_ = newPos;
+                repaint();
+                return; // repaint already queued
+            }
+        }
+    }
+    else
+    {
+        // No sample loaded – keep playhead at 0
+        if (playheadPos_ != 0.0)
+        {
+            playheadPos_     = 0.0;
+            lastPlayheadPos_ = 0.0;
+            repaint();
+            return;
         }
     }
 
@@ -196,6 +350,33 @@ double WaveformDisplay::xToNorm (float x) const
     const int w = getWidth();
     if (w <= 0) return 0.0;
     return juce::jlimit (0.0, 1.0, static_cast<double> (x) / static_cast<double> (w));
+}
+
+int WaveformDisplay::findSliceNear (int pixelX, float snapPx) const
+{
+    const auto& sampleBuf = processor_.getSampleBuffer();
+    if (!sampleBuf.hasAudio())
+        return -1;
+
+    const int   totalSamples = sampleBuf.getNumSamples();
+    const auto& slices       = processor_.getSliceEngine().getSlices();
+
+    for (int i = 0; i < static_cast<int> (slices.size()); ++i)
+    {
+        const float sliceX = normToX (static_cast<double> (slices[i].samplePosition)
+                                      / static_cast<double> (totalSamples));
+        if (std::abs (sliceX - static_cast<float> (pixelX)) < snapPx)
+            return i;
+    }
+    return -1;
+}
+
+int WaveformDisplay::getSliceSamplePos (int index) const
+{
+    const auto& slices = processor_.getSliceEngine().getSlices();
+    if (index >= 0 && index < static_cast<int> (slices.size()))
+        return slices[index].samplePosition;
+    return 0;
 }
 
 void WaveformDisplay::buildWaveformPath()
@@ -271,6 +452,44 @@ void WaveformDisplay::buildWaveformPath()
     cachedHeight_ = h;
 }
 
+//==============================================================================
+// Feature 5: beat/bar grid lines
+void WaveformDisplay::drawBeatGrid (juce::Graphics& g, juce::Rectangle<int> waveformArea)
+{
+    const auto& sampleBuf = processor_.getSampleBuffer();
+    if (!sampleBuf.hasAudio())
+        return;
+
+    const float  bpm   = processor_.getBPM();
+    const double sr    = sampleBuf.getSampleRate();
+    const int    total = sampleBuf.getNumSamples();
+
+    if (bpm <= 0.0f || sr <= 0.0 || total <= 0)
+        return;
+
+    const double samplesPerBeat = (sr * 60.0) / static_cast<double> (bpm);
+    const double samplesPerBar  = samplesPerBeat * 4.0;
+    const float  areaTop        = static_cast<float> (waveformArea.getY());
+    const float  areaBottom     = static_cast<float> (waveformArea.getBottom());
+
+    // Beat lines (subtle)
+    g.setColour (juce::Colour (0xff2a2a2a));
+    for (double s = 0.0; s < static_cast<double> (total); s += samplesPerBeat)
+    {
+        const int x = static_cast<int> (s / static_cast<double> (total) * getWidth());
+        g.drawVerticalLine (x, areaTop, areaBottom);
+    }
+
+    // Bar lines (slightly brighter, drawn on top of beat lines)
+    g.setColour (juce::Colour (0xff3a3a3a));
+    for (double s = 0.0; s < static_cast<double> (total); s += samplesPerBar)
+    {
+        const int x = static_cast<int> (s / static_cast<double> (total) * getWidth());
+        g.drawVerticalLine (x, areaTop, areaBottom);
+    }
+}
+
+//==============================================================================
 void WaveformDisplay::drawTimeRuler (juce::Graphics& g)
 {
     const auto rulerBounds = getLocalBounds().removeFromTop (kRulerHeight);
@@ -289,8 +508,8 @@ void WaveformDisplay::drawTimeRuler (juce::Graphics& g)
     if (!sampleBuf.hasAudio())
         return;
 
-    const float bpm          = processor_.getBPM();
-    const double sampleRate  = sampleBuf.getSampleRate();
+    const float  bpm          = processor_.getBPM();
+    const double sampleRate   = sampleBuf.getSampleRate();
     const int    totalSamples = sampleBuf.getNumSamples();
     const double durationSec  = static_cast<double> (totalSamples) / sampleRate;
     const double beatsPerBar  = 4.0;
@@ -330,10 +549,10 @@ void WaveformDisplay::drawSliceMarkers (juce::Graphics& g)
     if (!sampleBuf.hasAudio())
         return;
 
-    const int    totalSamples = sampleBuf.getNumSamples();
-    const auto&  slices       = processor_.getSliceEngine().getSlices();
-    const float  top          = static_cast<float> (kRulerHeight);
-    const float  bottom       = static_cast<float> (getHeight());
+    const int   totalSamples = sampleBuf.getNumSamples();
+    const auto& slices       = processor_.getSliceEngine().getSlices();
+    const float top          = static_cast<float> (kRulerHeight);
+    const float bottom       = static_cast<float> (getHeight());
 
     for (int i = 0; i < static_cast<int> (slices.size()); ++i)
     {
@@ -341,8 +560,10 @@ void WaveformDisplay::drawSliceMarkers (juce::Graphics& g)
                                   / static_cast<double> (totalSamples));
 
         const bool isSelected = (i == selectedSlice_);
-        g.setColour (isSelected ? kSliceSelected : kSliceMarker);
-        g.drawLine (x, top, x, bottom, isSelected ? 2.0f : 1.0f);
+        const bool isDragged  = (i == draggedSliceIndex_);
+        g.setColour (isDragged ? juce::Colours::yellow
+                               : (isSelected ? kSliceSelected : kSliceMarker));
+        g.drawLine (x, top, x, bottom, (isSelected || isDragged) ? 2.0f : 1.0f);
 
         // Small triangle handle at the top
         juce::Path handle;
@@ -379,16 +600,18 @@ void WaveformDisplay::drawLoopRegion (juce::Graphics& g)
     if (loopStart_ >= loopEnd_)
         return;
 
-    const float x1    = normToX (loopStart_);
-    const float x2    = normToX (loopEnd_);
-    const float top   = static_cast<float> (kRulerHeight);
-    const float h     = static_cast<float> (getHeight()) - top;
+    const float x1  = normToX (loopStart_);
+    const float x2  = normToX (loopEnd_);
+    const float top = static_cast<float> (kRulerHeight);
+    const float h   = static_cast<float> (getHeight()) - top;
 
     g.setColour (kLoopRegion);
     g.fillRect (x1, top, x2 - x1, h);
 
-    // Left and right edge lines
+    // Left (loop-in) edge
     g.setColour (juce::Colour (0xff3388cc).withAlpha (0.6f));
     g.drawLine (x1, top, x1, top + h, 1.5f);
+
+    // Right (loop-out) edge
     g.drawLine (x2, top, x2, top + h, 1.5f);
 }

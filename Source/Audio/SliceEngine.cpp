@@ -172,6 +172,34 @@ void SliceEngine::autoDetectSlices (const juce::AudioBuffer<float>& buffer,
 }
 
 //==============================================================================
+void SliceEngine::warpToGrid (double samplesPerBeat, int subdivisions)
+{
+    if (samplesPerBeat <= 0.0 || slices_.empty()) return;
+
+    const double gridSize = samplesPerBeat / static_cast<double> (subdivisions);
+
+    for (auto& slice : slices_)
+    {
+        if (slice.isLocked) continue;  // don't move locked slices
+
+        // Snap to nearest grid line
+        const double snapped = std::round (slice.samplePosition / gridSize) * gridSize;
+        slice.samplePosition = juce::roundToInt (snapped);
+    }
+
+    // Remove duplicates that may have snapped to the same position
+    std::sort (slices_.begin(), slices_.end(),
+               [] (const SlicePoint& a, const SlicePoint& b) {
+                   return a.samplePosition < b.samplePosition;
+               });
+    slices_.erase (std::unique (slices_.begin(), slices_.end(),
+                                [] (const SlicePoint& a, const SlicePoint& b) {
+                                    return a.samplePosition == b.samplePosition;
+                                }),
+                   slices_.end());
+}
+
+//==============================================================================
 const std::vector<SlicePoint>& SliceEngine::getSlices() const
 {
     return slices_;

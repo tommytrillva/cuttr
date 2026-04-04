@@ -3,6 +3,7 @@
 #include "../Common.h"
 #include "SampleBuffer.h"
 #include "SliceEngine.h"
+#include "PitchShiftEngine.h"
 
 #include <atomic>
 
@@ -77,4 +78,7 @@ private:
     int    sliceEnd_   { 0 };
 
     double sampleRate_ { 44100.0 };
+
+    PadSettings       padSettings_;   // Copy of settings from last trigger()
+    PitchShiftEngine  pitchEngine_;   // Per-voice pitch shift engine
 };

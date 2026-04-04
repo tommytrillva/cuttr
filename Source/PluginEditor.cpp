@@ -28,10 +28,46 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
       timeStretchPanel_   (processor),
       exportPanel_        (processor),
       presetBrowser_      (processor),
-      audioSetupPanel_    (deviceManager_)
+      audioSetupPanel_    (deviceManager_),
+      midiMonitor_        (processor)
 {
     setSize (kEditorWidth, kEditorHeight);
     setWantsKeyboardFocus (true);
+
+    // Initialise the audio device manager in standalone mode so that the Audio
+    // Setup panel can enumerate and configure output devices.
+    if (processor_.wrapperType == juce::AudioProcessor::wrapperType_Standalone)
+    {
+        deviceManager_.initialiseWithDefaultDevices (0, 2); // 0 inputs, 2 outputs
+    }
+
+    // ---- Load Sample button ----
+    loadSampleBtn_.onClick = [this]
+    {
+        fileChooser_ = std::make_unique<juce::FileChooser> (
+            "Load Sample",
+            juce::File::getSpecialLocation (juce::File::userMusicDirectory),
+            "*.wav;*.aif;*.aiff;*.mp3;*.flac;*.ogg");
+
+        fileChooser_->launchAsync (
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this] (const juce::FileChooser& fc)
+            {
+                const auto result = fc.getResult();
+                if (result.existsAsFile())
+                {
+                    juce::String error;
+                    if (! processor_.loadSample (result, error))
+                    {
+                        juce::AlertWindow::showMessageBoxAsync (
+                            juce::AlertWindow::WarningIcon,
+                            "Could not load sample",
+                            error.isEmpty() ? "Unknown error." : error);
+                    }
+                }
+            });
+    };
+    addAndMakeVisible (loadSampleBtn_);
 
     // ---- Left column ----
     addAndMakeVisible (waveformDisplay_);
@@ -45,8 +81,39 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
     rightPanel_.addTab ("Export",   kPanelBg, &exportPanel_,       false);
     rightPanel_.addTab ("Presets",  kPanelBg, &presetBrowser_,     false);
     rightPanel_.addTab ("Audio",    kPanelBg, &audioSetupPanel_,   false);
+    rightPanel_.addTab ("MIDI",     kPanelBg, &midiMonitor_,       false);
     rightPanel_.setCurrentTabIndex (0);
     addAndMakeVisible (rightPanel_);
+
+    // ---- Wire MIDI monitor callback ----
+    processor_.onMidiReceived = [this] (const juce::MidiMessage& m)
+    {
+        midiMonitor_.logMessage (m);
+    };
+
+    // ---- BPM status label ----
+    bpmStatusLabel_.setText ("", juce::dontSendNotification);
+    bpmStatusLabel_.setFont (juce::Font (11.0f));
+    bpmStatusLabel_.setColour (juce::Label::textColourId, juce::Colours::yellow);
+    addAndMakeVisible (bpmStatusLabel_);
+
+    // ---- Wire BPM detection callback ----
+    processor_.onBpmDetected = [this] (float bpm, bool valid)
+    {
+        if (valid)
+            bpmStatusLabel_.setText (juce::String (bpm, 1) + " BPM detected",
+                                     juce::dontSendNotification);
+        else
+            bpmStatusLabel_.setText ("BPM: unknown", juce::dontSendNotification);
+    };
+
+    // ---- Overdub toggle button ----
+    overdubBtn_.setClickingTogglesState (true);
+    overdubBtn_.onClick = [this]
+    {
+        processor_.setOverdubMode (overdubBtn_.getToggleState());
+    };
+    addAndMakeVisible (overdubBtn_);
 
     // ---- Listeners ----
     padGrid_.addListener (this);
@@ -58,6 +125,8 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
 
 ChopprEditor::~ChopprEditor()
 {
+    processor_.onBpmDetected  = nullptr;
+    processor_.onMidiReceived = nullptr;
     processor_.getChangeListeners().remove (this);
     padGrid_.removeListener (this);
 }
@@ -77,6 +146,15 @@ void ChopprEditor::resized()
 {
     // Right panel: full height on the right side
     rightPanel_.setBounds (kLeftWidth, 0, kRightPanelWidth, kEditorHeight);
+
+    // Load Sample button: top-left of waveform area, beside the title
+    loadSampleBtn_.setBounds (116, 4, 100, 24);
+
+    // BPM status label: sits to the right of the Load Sample button
+    bpmStatusLabel_.setBounds (222, 6, 160, 16);
+
+    // Overdub toggle: sits to the right of the BPM status label
+    overdubBtn_.setBounds (388, 4, 70, 22);
 
     // Waveform: top of left column
     waveformDisplay_.setBounds (0, 0, kLeftWidth, kWaveformHeight);
@@ -180,10 +258,13 @@ bool ChopprEditor::keyPressed (const juce::KeyPress& key)
         processor_.setLoopOut ((int) processor_.getMetronome().getPlayheadPositionSamples());
         return true;
     }
-    // Z – Undo last manual slice marker
-    if (! ctrl && (kc == 'Z' || kc == 'z'))
+    // Z – Undo last manual slice marker; Ctrl+Z – Undo last recording layer
+    if (kc == 'Z' || kc == 'z')
     {
-        processor_.getSliceEngine().undoLastSlice();
+        if (ctrl)
+            processor_.undoLastRecordingLayer();
+        else
+            processor_.getSliceEngine().undoLastSlice();
         processor_.sendChangeMessage();
         return true;
     }

@@ -29,6 +29,12 @@ public:
     void setTimeSignature (int numerator, int denominator);
     void setEnabled (bool enabled);
 
+    /** Set the output volume of the metronome click (0.0 = silent, 1.0 = full). */
+    void setVolume (float volume);
+
+    /** Set the number of pre-roll bars to count before recording starts (0, 1, or 2). */
+    void setPreRollBars (int bars);
+
     /** Reset playhead to the start of bar 1, beat 1. */
     void reset();
 
@@ -52,6 +58,8 @@ private:
     double samplePosition_ { 0.0 };
     double samplesPerBeat_ { 22050.0 };
     bool   enabled_        { false };
+    float  volume_         { 0.8f };  ///< Master volume scalar for click output
+    int    preRollBars_    { 1 };     ///< Number of bars to count in before recording
 
     // Tap-tempo ring buffer (stores high-res ms timestamps)
     juce::Array<double> tapTimes_;

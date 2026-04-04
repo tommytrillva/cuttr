@@ -10,6 +10,7 @@
 #include "UI/AudioSetupPanel.h"
 #include "UI/ExportPanel.h"
 #include "UI/PresetBrowser.h"
+#include "UI/MidiMonitorPanel.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -89,6 +90,18 @@ private:
     // local AudioDeviceManager that is only used in standalone mode.
     juce::AudioDeviceManager deviceManager_;
     AudioSetupPanel          audioSetupPanel_;
+
+    MidiMonitorPanel         midiMonitor_;
+
+    // --- File loading ---
+    juce::TextButton                   loadSampleBtn_ { "Load Sample" };
+    std::unique_ptr<juce::FileChooser> fileChooser_;
+
+    // --- Overdub toggle ---
+    juce::TextButton overdubBtn_ { "OVERDUB" };
+
+    // --- BPM detection status ---
+    juce::Label bpmStatusLabel_;
 
     // --- State ---
     int selectedPad_ { -1 };

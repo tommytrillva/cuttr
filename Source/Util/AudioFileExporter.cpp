@@ -64,10 +64,8 @@ AudioFileExporter::createWriter (const juce::File&     file,
 #endif
         if (format == nullptr)
         {
-            // LAME not available at runtime – fall back silently to WAV
-            errorMsg = "LAME encoder not found; exporting as WAV instead.";
-            format = formatManager_.findFormatForFileExtension ("wav");
-            // caller must handle the non-empty errorMsg as a warning, not a hard error
+            errorMsg = "MP3 export requires LAME (lame.exe). Install LAME and configure its path.";
+            return nullptr;
         }
     }
     else

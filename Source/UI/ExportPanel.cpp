@@ -69,6 +69,54 @@ ExportPanel::ExportPanel (ChopprProcessor& processor)
     exportSlicesButton_.setColour (juce::TextButton::textColourOnId,   kText);
     exportSlicesButton_.addListener (this);
     addAndMakeVisible (exportSlicesButton_);
+
+    // ---- Normalise toggle ----
+    normaliseToggle_.setColour (juce::ToggleButton::textColourId,  kText);
+    normaliseToggle_.setColour (juce::ToggleButton::tickColourId,  kAccent);
+    normaliseToggle_.setColour (juce::ToggleButton::tickDisabledColourId, kDim);
+    addAndMakeVisible (normaliseToggle_);
+
+    // ---- MP3 bitrate ----
+    mp3BitrateLabel_.setText ("MP3 Bitrate", juce::dontSendNotification);
+    mp3BitrateLabel_.setFont (juce::Font (11.0f));
+    mp3BitrateLabel_.setColour (juce::Label::textColourId, kDim);
+    mp3BitrateLabel_.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (mp3BitrateLabel_);
+
+    mp3BitrateCombo_.addItem ("128 kbps", 128);
+    mp3BitrateCombo_.addItem ("192 kbps", 192);
+    mp3BitrateCombo_.addItem ("320 kbps", 320);
+    mp3BitrateCombo_.setSelectedId (320, juce::dontSendNotification);
+    mp3BitrateCombo_.setColour (juce::ComboBox::backgroundColourId,    kBg);
+    mp3BitrateCombo_.setColour (juce::ComboBox::textColourId,           kText);
+    mp3BitrateCombo_.setColour (juce::ComboBox::outlineColourId,        juce::Colour (0xff333355));
+    mp3BitrateCombo_.setColour (juce::ComboBox::arrowColourId,          kAccent);
+    mp3BitrateCombo_.setColour (juce::ComboBox::focusedOutlineColourId, kAccent);
+    addAndMakeVisible (mp3BitrateCombo_);
+
+    // ---- Sample rate ----
+    sampleRateLabel_.setText ("Sample Rate", juce::dontSendNotification);
+    sampleRateLabel_.setFont (juce::Font (11.0f));
+    sampleRateLabel_.setColour (juce::Label::textColourId, kDim);
+    sampleRateLabel_.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (sampleRateLabel_);
+
+    sampleRateCombo_.addItem ("Match session", 1);
+    sampleRateCombo_.addItem ("44100 Hz",  44100);
+    sampleRateCombo_.addItem ("48000 Hz",  48000);
+    sampleRateCombo_.addItem ("88200 Hz",  88200);
+    sampleRateCombo_.addItem ("96000 Hz",  96000);
+    sampleRateCombo_.setSelectedId (1, juce::dontSendNotification);
+    sampleRateCombo_.setColour (juce::ComboBox::backgroundColourId,    kBg);
+    sampleRateCombo_.setColour (juce::ComboBox::textColourId,           kText);
+    sampleRateCombo_.setColour (juce::ComboBox::outlineColourId,        juce::Colour (0xff333355));
+    sampleRateCombo_.setColour (juce::ComboBox::arrowColourId,          kAccent);
+    sampleRateCombo_.setColour (juce::ComboBox::focusedOutlineColourId, kAccent);
+    addAndMakeVisible (sampleRateCombo_);
+
+    // Wire format combo to update MP3 visibility
+    formatComboBox_.onChange = [this]{ updateMp3Visibility(); };
+    updateMp3Visibility();
 }
 
 //==============================================================================
@@ -84,24 +132,38 @@ void ExportPanel::paint (juce::Graphics& g)
 
 void ExportPanel::resized()
 {
-    const int pad   = 10;
-    const int w     = getWidth() - pad * 2;
-    const int itemH = 26;
-    const int gap   = 6;
+    const int pad    = 10;
+    const int w      = getWidth() - pad * 2;
+    const int itemH  = 26;
+    const int labelH = 14;
+    const int gap    = 4;
+    const int rowGap = 6;
 
     int y = pad;
 
     titleLabel_.setBounds      (pad, y, w, 20); y += 24;
     y += 4;
 
-    formatLabel_.setBounds     (pad, y, w, 14); y += 16;
-    formatComboBox_.setBounds  (pad, y, w, itemH); y += itemH + gap;
+    formatLabel_.setBounds     (pad, y, w, labelH); y += labelH + 2;
+    formatComboBox_.setBounds  (pad, y, w, itemH);  y += itemH + rowGap;
 
-    bitDepthLabel_.setBounds   (pad, y, w, 14); y += 16;
-    bitDepthComboBox_.setBounds(pad, y, w, itemH); y += itemH + gap * 2;
+    bitDepthLabel_.setBounds   (pad, y, w, labelH); y += labelH + 2;
+    bitDepthComboBox_.setBounds(pad, y, w, itemH);  y += itemH + rowGap;
 
-    exportButton_.setBounds      (pad, y, w, itemH); y += itemH + gap;
-    exportSlicesButton_.setBounds(pad, y, w, itemH);
+    // MP3 bitrate (shown/hidden based on format)
+    mp3BitrateLabel_.setBounds  (pad, y, w, labelH); y += labelH + 2;
+    mp3BitrateCombo_.setBounds  (pad, y, w, itemH);  y += itemH + rowGap;
+
+    // Sample rate
+    sampleRateLabel_.setBounds  (pad, y, w, labelH); y += labelH + 2;
+    sampleRateCombo_.setBounds  (pad, y, w, itemH);  y += itemH + rowGap;
+
+    // Normalise toggle
+    normaliseToggle_.setBounds  (pad, y, w, itemH);  y += itemH + gap;
+    y += gap;
+
+    exportButton_.setBounds       (pad, y, w, itemH); y += itemH + rowGap;
+    exportSlicesButton_.setBounds (pad, y, w, itemH);
 }
 
 //==============================================================================
@@ -118,8 +180,15 @@ AudioFileExporter::ExportSettings ExportPanel::buildSettings (const juce::File& 
 {
     AudioFileExporter::ExportSettings settings;
 
-    settings.outputFile  = dest;
-    settings.sampleRate  = processor_.getSampleBuffer().getSampleRate();
+    settings.outputFile = dest;
+
+    // Sample rate
+    {
+        const int srId = sampleRateCombo_.getSelectedId();
+        settings.sampleRate = (srId == 1)
+                                  ? processor_.getSampleBuffer().getSampleRate()
+                                  : static_cast<double> (srId);
+    }
 
     // Format
     switch (formatComboBox_.getSelectedId())
@@ -136,6 +205,14 @@ AudioFileExporter::ExportSettings ExportPanel::buildSettings (const juce::File& 
         case 3:  settings.bitDepth = AudioFileExporter::BitDepth::Bits32; break;
         default: settings.bitDepth = AudioFileExporter::BitDepth::Bits24; break;
     }
+
+    // Normalise
+    settings.normalise = normaliseToggle_.getToggleState();
+
+    // MP3 bitrate (only relevant when MP3 format is selected)
+    if (formatComboBox_.getSelectedId() == 3)
+        settings.mp3Quality = static_cast<AudioFileExporter::Mp3Quality> (
+            mp3BitrateCombo_.getSelectedId());
 
     return settings;
 }
@@ -179,6 +256,13 @@ void ExportPanel::doExportBuffer()
                                                         "Export Failed", errorMsg);
             }
         });
+}
+
+void ExportPanel::updateMp3Visibility()
+{
+    const bool isMp3 = (formatComboBox_.getSelectedId() == 3);
+    mp3BitrateLabel_.setVisible (isMp3);
+    mp3BitrateCombo_.setVisible (isMp3);
 }
 
 void ExportPanel::doExportSlices()

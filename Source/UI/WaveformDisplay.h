@@ -11,9 +11,11 @@ class ChopprProcessor;
  *
  * Full-width waveform viewer with:
  *   - Waveform rendering (stereo or mono, dark theme)
- *   - Animated playhead (30 Hz timer)
- *   - Vertical slice markers (red lines)
- *   - Loop region shading (semi-transparent blue)
+ *   - Beat-subdivision grid lines behind the waveform
+ *   - Animated playhead (30 Hz timer, driven by metronome position)
+ *   - Vertical slice markers (red lines) with drag-to-move support
+ *   - Right-click context menu on slice markers
+ *   - Loop region shading (semi-transparent blue) with draggable In/Out handles
  *   - Time ruler across the top (bar numbers)
  *   - Mouse-click to add/select slice, double-click to remove slice
  */
@@ -33,6 +35,8 @@ public:
 
     // Mouse
     void mouseDown        (const juce::MouseEvent& event) override;
+    void mouseDrag        (const juce::MouseEvent& event) override;
+    void mouseUp          (const juce::MouseEvent& event) override;
     void mouseDoubleClick (const juce::MouseEvent& event) override;
 
     //==========================================================================
@@ -61,6 +65,9 @@ private:
     /** Build a cached waveform path for fast repaints. */
     void buildWaveformPath();
 
+    /** Draw the beat/bar grid lines behind the waveform. */
+    void drawBeatGrid (juce::Graphics& g, juce::Rectangle<int> waveformArea);
+
     /** Draw the time ruler at the top of the component. */
     void drawTimeRuler (juce::Graphics& g);
 
@@ -72,6 +79,13 @@ private:
 
     /** Draw the loop region overlay. */
     void drawLoopRegion (juce::Graphics& g);
+
+    /** Returns the index of the slice whose pixel x-position is within
+     *  @p snapPixels of @p pixelX, or -1 if none. */
+    int findSliceNear (int pixelX, float snapPixels) const;
+
+    /** Returns the sample position of slice @p index, or 0 if out of range. */
+    int getSliceSamplePos (int index) const;
 
     //==========================================================================
     // Dark theme colours
@@ -91,7 +105,16 @@ private:
     double loopStart_    { 0.0 };
     double loopEnd_      { 1.0 };
     double playheadPos_  { 0.0 };
+    double lastPlayheadPos_ { -1.0 };   ///< Used to avoid unnecessary repaints
     int    selectedSlice_ { -1 };
+
+    // Feature 2: drag slice markers
+    int draggedSliceIndex_ { -1 };
+    int dragStartX_        { 0 };
+
+    // Feature 4: drag loop in/out handles
+    enum class LoopDragTarget { None, LoopIn, LoopOut };
+    LoopDragTarget loopDragTarget_ { LoopDragTarget::None };
 
     /** Cached waveform path; rebuilt whenever the sample changes. */
     juce::Path waveformPath_;

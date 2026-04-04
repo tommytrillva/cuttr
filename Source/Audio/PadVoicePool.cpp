@@ -60,8 +60,20 @@ void PadVoicePool::renderNextBlock (juce::AudioBuffer<float>& outputBuffer,
 {
     for (auto& v : voices_)
     {
-        if (v.isActive())
-            v.renderNextBlock (outputBuffer, startSample, numSamples, sample);
+        if (! v.isActive())
+            continue;
+
+        // If any pad is soloed (soloMask_ != 0), skip voices whose pad is not soloed.
+        const int padIdx = v.getPadIndex();
+        if (soloMask_ != 0)
+        {
+            const bool padIsSoloed = (padIdx >= 0 && padIdx < 32)
+                                     && ((soloMask_ >> static_cast<uint32_t> (padIdx)) & 1u) != 0u;
+            if (! padIsSoloed)
+                continue;
+        }
+
+        v.renderNextBlock (outputBuffer, startSample, numSamples, sample);
     }
 }
 
@@ -73,6 +85,15 @@ int PadVoicePool::getActiveVoiceCount() const
         if (v.isActive())
             ++count;
     return count;
+}
+
+//==============================================================================
+bool PadVoicePool::isAnyVoiceActiveForPad (int padIndex) const noexcept
+{
+    for (const auto& voice : voices_)
+        if (voice.isActive() && voice.getPadIndex() == padIndex)
+            return true;
+    return false;
 }
 
 //==============================================================================

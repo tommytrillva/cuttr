@@ -21,6 +21,7 @@ PadGrid::PadGrid (ChopprProcessor& processor, GridSize gridSize)
 {
     padActive_.fill (false);
     setOpaque (true);
+    startTimerHz (30); // poll at ~30 Hz for pad activity
 }
 
 //==============================================================================
@@ -86,6 +87,16 @@ void PadGrid::setPadActive (int padIndex, bool active)
     if (padIndex < 0 || padIndex >= kMaxPads) return;
     padActive_[static_cast<std::size_t> (padIndex)] = active;
     repaint();
+}
+
+//==============================================================================
+void PadGrid::timerCallback()
+{
+    for (int i = 0; i < kMaxPads; ++i)
+    {
+        const bool active = processor_.isVoiceActiveForPad (i);
+        setPadActive (i, active);
+    }
 }
 
 //==============================================================================

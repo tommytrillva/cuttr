@@ -15,7 +15,8 @@ class ChopprProcessor;
  *
  * Observers register as Listener to receive pad trigger / selection events.
  */
-class PadGrid : public juce::Component
+class PadGrid : public juce::Component,
+                private juce::Timer
 {
 public:
     //==========================================================================
@@ -62,6 +63,9 @@ private:
 
     /** Draw a single pad. */
     void drawPad (juce::Graphics& g, int padIndex);
+
+    /** juce::Timer callback: polls processor for active voices and updates visuals. */
+    void timerCallback() override;
 
     //==========================================================================
     // Theme colours

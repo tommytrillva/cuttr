@@ -24,9 +24,16 @@ public:
     SampleBuffer& operator= (const SampleBuffer&) = delete;
 
     //==========================================================================
+    /** Set the session sample rate.  Call from PluginProcessor::prepareToPlay()
+     *  before loading any files so that loadFromFile() can resample on the fly. */
+    void prepareToPlay (double sampleRate);
+
+    //==========================================================================
     /** Load audio from file.  May be called from any non-audio thread.
      *  Returns true on success; on failure writes a description to errorMessage.
-     *  Files larger than 500 MB are rejected. */
+     *  Files larger than 500 MB are rejected.
+     *  If the file's sample rate differs from the session sample rate set via
+     *  prepareToPlay(), the audio is resampled to match. */
     bool loadFromFile (const juce::File& file, juce::String& errorMessage);
 
     /** Release all audio data. */
@@ -57,7 +64,8 @@ private:
     //==========================================================================
     juce::AudioFormatManager     formatManager_;
     juce::AudioBuffer<float>     buffer_;
-    double                       sampleRate_  { 44100.0 };
+    double                       nativeSampleRate_  { 44100.0 };  // rate of data currently in buffer_
+    double                       sessionSampleRate_ { 44100.0 };  // DAW / plugin session rate
     juce::File                   sourceFile_;
     mutable juce::ReadWriteLock  lock_;
     std::atomic<bool>            isLoading_   { false };

@@ -45,6 +45,7 @@ struct PadSettings
 {
     int sliceIndex = -1;                // Which slice this pad plays (-1 = unassigned)
     float pitchOffsetSemitones = 0.0f;  // -24 to +24
+    float fineTuneCents { 0.0f };       // -100 to +100
     float volume = 1.0f;                // 0..1
     float pan = 0.0f;                   // -1..1
     int chokeGroup = 0;                 // 0 = no choke group

@@ -61,6 +61,21 @@ public:
     /** Erase the recording and reset all state. */
     void clearRecording();
 
+    //==========================================================================
+    // Overdub / layer-stack API
+    //==========================================================================
+    void setOverdubMode (bool overdub) noexcept { overdubMode_ = overdub; }
+    bool isOverdubMode()  const noexcept        { return overdubMode_; }
+    int  getNumLayers()   const noexcept        { return (int)layers_.size(); }
+
+    /** Remove the most recently completed layer.
+     *  @return false if the layer stack was already empty. */
+    bool undoLastLayer();
+
+    /** Additively mix all completed layers into @p dest.
+     *  Normalises the result if the summed peak exceeds 1.0. */
+    void mixLayersToBuffer (juce::AudioBuffer<float>& dest) const;
+
 private:
     //==========================================================================
     juce::AudioBuffer<float> recordBuffer_;
@@ -72,4 +87,10 @@ private:
 
     std::atomic<bool> isRecording_  { false };
     std::atomic<bool> isPreRolling_ { false };
+
+    //==========================================================================
+    // Layer stack for overdub support
+    std::vector<juce::AudioBuffer<float>> layers_;       // completed recording layers
+    juce::AudioBuffer<float>              currentLayer_; // layer being recorded now
+    bool overdubMode_ { false };
 };

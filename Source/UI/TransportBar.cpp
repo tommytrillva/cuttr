@@ -67,6 +67,96 @@ TransportBar::TransportBar (ChopprProcessor& processor)
     gridSizeButton_.addListener (this);
     addAndMakeVisible (gridSizeButton_);
 
+    // ---- Metronome toggle ----
+    applyButtonStyle (metronomeBtn_, kSurface, kAccent.darker (0.2f), kText);
+    metronomeBtn_.setClickingTogglesState (true);
+    metronomeBtn_.onClick = [this]
+    {
+        processor_.getMetronome().setEnabled (metronomeBtn_.getToggleState());
+    };
+    addAndMakeVisible (metronomeBtn_);
+
+    // ---- Metronome volume knob ----
+    metronomeVolLabel_.setText ("Vol", juce::dontSendNotification);
+    metronomeVolLabel_.setFont (juce::Font (10.0f));
+    metronomeVolLabel_.setColour (juce::Label::textColourId, kDimText);
+    metronomeVolLabel_.setJustificationType (juce::Justification::centred);
+    addAndMakeVisible (metronomeVolLabel_);
+
+    metronomeVolSlider_.setRange (0.0, 1.0, 0.01);
+    metronomeVolSlider_.setValue (0.8);
+    metronomeVolSlider_.setSliderStyle (juce::Slider::Rotary);
+    metronomeVolSlider_.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    metronomeVolSlider_.setColour (juce::Slider::rotarySliderFillColourId, kAccent);
+    metronomeVolSlider_.setColour (juce::Slider::rotarySliderOutlineColourId, kSurface);
+    metronomeVolSlider_.onValueChange = [this]
+    {
+        processor_.getMetronome().setVolume (static_cast<float> (metronomeVolSlider_.getValue()));
+    };
+    addAndMakeVisible (metronomeVolSlider_);
+
+    // ---- Time signature combo ----
+    timeSigCombo_.addItem ("4/4", 1);
+    timeSigCombo_.addItem ("3/4", 2);
+    timeSigCombo_.addItem ("6/8", 3);
+    timeSigCombo_.addItem ("7/8", 4);
+    timeSigCombo_.addItem ("5/4", 5);
+    timeSigCombo_.setSelectedId (1, juce::dontSendNotification);
+    timeSigCombo_.setColour (juce::ComboBox::backgroundColourId,    kSurface);
+    timeSigCombo_.setColour (juce::ComboBox::textColourId,           kText);
+    timeSigCombo_.setColour (juce::ComboBox::outlineColourId,        juce::Colour (0xff333355));
+    timeSigCombo_.setColour (juce::ComboBox::arrowColourId,          kAccent);
+    timeSigCombo_.setColour (juce::ComboBox::focusedOutlineColourId, kAccent);
+    timeSigCombo_.onChange = [this]
+    {
+        const int id = timeSigCombo_.getSelectedId();
+        int num = 4, den = 4;
+        if      (id == 2) { num = 3; den = 4; }
+        else if (id == 3) { num = 6; den = 8; }
+        else if (id == 4) { num = 7; den = 8; }
+        else if (id == 5) { num = 5; den = 4; }
+        processor_.getMetronome().setTimeSignature (num, den);
+    };
+    addAndMakeVisible (timeSigCombo_);
+
+    // ---- Half / Double BPM ----
+    applyButtonStyle (halfBpmBtn_, kSurface, juce::Colour (0xff2a2a4a), kText);
+    halfBpmBtn_.onClick = [this]
+    {
+        const float bpm = processor_.getBPM();
+        processor_.setBPM (juce::jmax (20.0f, bpm * 0.5f));
+        bpmSlider_.setValue (static_cast<double> (processor_.getBPM()),
+                             juce::dontSendNotification);
+    };
+    addAndMakeVisible (halfBpmBtn_);
+
+    applyButtonStyle (doubleBpmBtn_, kSurface, juce::Colour (0xff2a2a4a), kText);
+    doubleBpmBtn_.onClick = [this]
+    {
+        const float bpm = processor_.getBPM();
+        processor_.setBPM (juce::jmin (300.0f, bpm * 2.0f));
+        bpmSlider_.setValue (static_cast<double> (processor_.getBPM()),
+                             juce::dontSendNotification);
+    };
+    addAndMakeVisible (doubleBpmBtn_);
+
+    // ---- Pre-roll selector ----
+    preRollCombo_.addItem ("0 bars", 1);
+    preRollCombo_.addItem ("1 bar",  2);
+    preRollCombo_.addItem ("2 bars", 3);
+    preRollCombo_.setSelectedId (2, juce::dontSendNotification);  // default: 1 bar
+    preRollCombo_.setColour (juce::ComboBox::backgroundColourId,    kSurface);
+    preRollCombo_.setColour (juce::ComboBox::textColourId,           kText);
+    preRollCombo_.setColour (juce::ComboBox::outlineColourId,        juce::Colour (0xff333355));
+    preRollCombo_.setColour (juce::ComboBox::arrowColourId,          kAccent);
+    preRollCombo_.setColour (juce::ComboBox::focusedOutlineColourId, kAccent);
+    preRollCombo_.onChange = [this]
+    {
+        const int bars = preRollCombo_.getSelectedId() - 1;  // 0, 1, or 2
+        processor_.getMetronome().setPreRollBars (bars);
+    };
+    addAndMakeVisible (preRollCombo_);
+
     updateGridSizeLabel();
 }
 
@@ -87,27 +177,58 @@ void TransportBar::paint (juce::Graphics& g)
 void TransportBar::resized()
 {
     // Manual FlexBox-style horizontal layout
-    const int h      = getHeight();
-    const int pad    = 6;
-    const int btnH   = h - pad * 2;
-    const int btnW   = 44;
+    const int h       = getHeight();
+    const int pad     = 6;
+    const int btnH    = h - pad * 2;
+    const int btnW    = 44;
     const int sliderW = 130;
-    const int tapW   = 38;
-    const int tsW    = 36;
-    const int gsW    = 48;
+    const int tapW    = 38;
+    const int gsW     = 48;
+
+    // Compact sizes for new controls
+    const int smallBtnW = 36;
+    const int smallBtnH = 22;
+    const int comboW    = 60;
+    const int comboH    = 22;
+    const int knobSz    = 28;
+
+    // Vertical centre helper for shorter widgets
+    const int centreY = pad + (btnH - smallBtnH) / 2;
+    const int knobY   = pad + (btnH - knobSz) / 2;
 
     int x = pad;
 
+    // Transport buttons
     playButton_.setBounds   (x, pad, btnW, btnH); x += btnW + 4;
     stopButton_.setBounds   (x, pad, btnW, btnH); x += btnW + 4;
     recordButton_.setBounds (x, pad, btnW, btnH); x += btnW + 12;
 
-    bpmLabel_.setBounds (x, pad, 32, btnH); x += 34;
+    // BPM area
+    bpmLabel_.setBounds  (x, pad, 32, btnH); x += 34;
     bpmSlider_.setBounds (x, pad, sliderW, btnH); x += sliderW + 4;
+
+    // Half / Double BPM
+    halfBpmBtn_.setBounds   (x, centreY, smallBtnW, smallBtnH); x += smallBtnW + 2;
+    doubleBpmBtn_.setBounds (x, centreY, smallBtnW, smallBtnH); x += smallBtnW + 4;
+
+    // Tap tempo
     tapTempoButton_.setBounds (x, pad, tapW, btnH); x += tapW + 12;
 
-    timeSigLabel_.setBounds (x, pad, tsW, btnH); x += tsW + 8;
-    gridSizeButton_.setBounds (x, pad, gsW, btnH);
+    // Time signature (replaces the old label)
+    timeSigLabel_.setVisible (false);   // hidden – timeSigCombo_ takes over
+    timeSigCombo_.setBounds (x, centreY, comboW, comboH); x += comboW + 8;
+
+    // Grid size
+    gridSizeButton_.setBounds (x, pad, gsW, btnH); x += gsW + 12;
+
+    // Metronome section
+    metronomeBtn_.setBounds      (x, centreY, smallBtnW, smallBtnH); x += smallBtnW + 4;
+    metronomeVolSlider_.setBounds(x, knobY,   knobSz, knobSz);
+    metronomeVolLabel_.setBounds (x, knobY + knobSz - 2, knobSz, 12);
+    x += knobSz + 8;
+
+    // Pre-roll
+    preRollCombo_.setBounds (x, centreY, comboW + 10, comboH);
 }
 
 //==============================================================================

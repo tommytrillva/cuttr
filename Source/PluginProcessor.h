@@ -26,6 +26,9 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <array>
+#include <atomic>
+#include <functional>
+#include <memory>
 #include <vector>
 
 //==============================================================================
@@ -43,7 +46,7 @@ class ChopprProcessor : public juce::AudioProcessor
 public:
     //==========================================================================
     ChopprProcessor();
-    ~ChopprProcessor() override = default;
+    ~ChopprProcessor() override;
 
     //==========================================================================
     // AudioProcessor interface
@@ -102,8 +105,33 @@ public:
     /** Re-run slice detection using the given mode and the current BPM. */
     void autoSlice (SliceMode mode);
 
-    /** Synchronously detect the BPM of the loaded sample and apply it. */
+    /** Re-run slice detection with explicit TransientDetector settings.
+     *  @param mode       Detection algorithm.
+     *  @param settings   TransientDetector parameters (threshold, minSliceSeconds, etc.).
+     *  @param maxSlices  Trim result to at most this many slices (0 = no limit).
+     */
+    void autoSliceWithSettings (SliceMode                          mode,
+                                const TransientDetector::Settings& settings,
+                                int                                maxSlices = 0);
+
+    /** Launch background BPM detection for the loaded sample.
+     *  When detection finishes, onBpmDetected is called on the message thread. */
     void detectBPM();
+
+    /** Snaps every unlocked slice point to the nearest beat-grid position.
+     *  @param subdivisions  1 = beats, 2 = 8th notes, 4 = 16th notes, etc. */
+    void warpToGrid (int subdivisions = 1);
+
+    /** Launch background auto-slice.  Returns immediately; progress is reported
+     *  via onAutoSliceProgress (false = started, true = done). */
+    void autoSliceAsync (SliceMode                          mode,
+                         const TransientDetector::Settings& settings,
+                         int                                maxSlices = 0);
+
+    /** Optional callback invoked on the message thread during autoSliceAsync.
+     *  false = analysis started, true = analysis complete.
+     *  Must be cleared (set to nullptr) before the editor is destroyed. */
+    std::function<void(bool done)> onAutoSliceProgress;
 
     //==========================================================================
     // Pad management
@@ -147,6 +175,14 @@ public:
     void startRecording (double preRollBeats = 1.0, double loopBeats = 4.0);
     void stopRecording();
 
+    /** Remove the most recently completed recording layer (Ctrl+Z). */
+    void undoLastRecordingLayer();
+
+    /** Enable / disable overdub mode (new recordings layer over existing ones). */
+    void setOverdubMode (bool overdub);
+
+    bool isOverdubMode() const noexcept;
+
     //==========================================================================
     // Pitch / stretch
     //==========================================================================
@@ -161,6 +197,16 @@ public:
     //==========================================================================
     MidiInputManager& getMidiInputManager() { return midiInputManager_; }
 
+    /** Optional callback invoked on the audio thread for every incoming MIDI
+     *  message.  The editor sets this to forward events to MidiMonitorPanel.
+     *  Must be cleared (set to nullptr) before the editor is destroyed. */
+    std::function<void(const juce::MidiMessage&)> onMidiReceived;
+
+    /** Optional callback invoked on the message thread when background BPM
+     *  detection completes.  @p valid is false if detection failed.
+     *  Must be cleared (set to nullptr) before the editor is destroyed. */
+    std::function<void(float bpm, bool valid)> onBpmDetected;
+
     //==========================================================================
     // Direct pad trigger (from UI grid click or internal routing)
     //==========================================================================
@@ -169,6 +215,9 @@ public:
 
     /** Stop all voices for pad @p padIndex. */
     void releasePad (int padIndex);
+
+    /** Returns true if any voice is currently playing for the given pad index. */
+    bool isVoiceActiveForPad (int padIndex) const noexcept;
 
     //==========================================================================
     // Change notification (for UI)
@@ -207,8 +256,52 @@ private:
     juce::ListenerList<juce::ChangeListener> changeListeners_;
 
     //==========================================================================
+    // Solo helpers
+    /** Returns true if any pad in padSettings_ has solo == true. */
+    bool anyPadSoloed() const noexcept;
+
+    /** Builds a bitmask (bit N = pad N) of all soloed pads. */
+    uint32_t buildSoloMask() const noexcept;
+
+    //==========================================================================
     // Per-block scratch buffer (heap-allocated once in prepareToPlay)
     std::vector<MidiInputManager::PadEvent> padEventBuffer_;
+
+    //==========================================================================
+    // Background BPM analysis thread
+    class BpmAnalysisThread : public juce::Thread
+    {
+    public:
+        BpmAnalysisThread (ChopprProcessor& p)
+            : juce::Thread ("CHOPPR BPM Analysis"), processor_ (p) {}
+        void run() override;
+    private:
+        ChopprProcessor& processor_;
+    };
+
+    std::unique_ptr<BpmAnalysisThread> bpmThread_;
+    std::atomic<bool>                  bpmAnalysisPending_ { false };
+
+    //==========================================================================
+    // Background auto-slice thread
+    class AutoSliceThread : public juce::Thread
+    {
+    public:
+        AutoSliceThread (ChopprProcessor& p)
+            : juce::Thread ("CHOPPR AutoSlice"), processor_ (p) {}
+        void run() override;
+
+        // Set these before calling startThread()
+        SliceMode                    mode     { SliceMode::Transient };
+        TransientDetector::Settings  settings;
+        int                          maxSlices { 64 };
+
+    private:
+        ChopprProcessor& processor_;
+    };
+
+    std::unique_ptr<AutoSliceThread> autoSliceThread_;
+    std::atomic<bool>                autoSlicePending_ { false };
 
     //==========================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ChopprProcessor)

@@ -45,6 +45,9 @@ private:
     /** Run the export-slices flow. */
     void doExportSlices();
 
+    /** Show/hide the MP3 bitrate controls based on the selected format. */
+    void updateMp3Visibility();
+
     //==========================================================================
     ChopprProcessor& processor_;
 
@@ -53,6 +56,17 @@ private:
     juce::ComboBox formatComboBox_;
     juce::Label    bitDepthLabel_;
     juce::ComboBox bitDepthComboBox_;
+
+    // ---- Normalise ----
+    juce::ToggleButton normaliseToggle_ { "Normalise" };
+
+    // ---- MP3 bitrate ----
+    juce::ComboBox mp3BitrateCombo_;
+    juce::Label    mp3BitrateLabel_;
+
+    // ---- Sample rate ----
+    juce::ComboBox sampleRateCombo_;
+    juce::Label    sampleRateLabel_;
 
     juce::TextButton exportButton_       { "Export..."        };
     juce::TextButton exportSlicesButton_ { "Export Slices..." };

@@ -52,6 +52,12 @@ public:
                            SliceMode mode,
                            float    bpm = 120.0f);
 
+    /** Snaps every unlocked slice point to the nearest beat boundary.
+        @param samplesPerBeat  Samples per beat at the current BPM/SR.
+        @param subdivisions    1 = snap to beats, 2 = snap to 8th notes, 4 = snap to 16ths.
+    */
+    void warpToGrid (double samplesPerBeat, int subdivisions = 1);
+
     //==========================================================================
     const std::vector<SlicePoint>& getSlices()    const;
     int getNumSlices()                             const;

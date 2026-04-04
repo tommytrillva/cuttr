@@ -1,9 +1,18 @@
 #include "SampleBuffer.h"
 
+#include <cmath>
+
 //==============================================================================
 SampleBuffer::SampleBuffer()
 {
     formatManager_.registerBasicFormats();
+}
+
+//==============================================================================
+void SampleBuffer::prepareToPlay (double sampleRate)
+{
+    // Store the session rate; subsequent loadFromFile calls will resample to it.
+    sessionSampleRate_ = (sampleRate > 0.0) ? sampleRate : 44100.0;
 }
 
 //==============================================================================
@@ -35,7 +44,7 @@ bool SampleBuffer::loadFromFile (const juce::File& file, juce::String& errorMess
 
     const int numChannels  = static_cast<int> (reader->numChannels);
     const int numSamples   = static_cast<int> (reader->lengthInSamples);
-    const double sr        = reader->sampleRate;
+    const double fileSR    = reader->sampleRate;
 
     juce::AudioBuffer<float> newBuffer (numChannels, numSamples);
 
@@ -46,12 +55,42 @@ bool SampleBuffer::loadFromFile (const juce::File& file, juce::String& errorMess
         return false;
     }
 
+    // --- Sample-rate conversion (off the audio thread) -----------------------
+    // If the file's sample rate differs from the session sample rate, resample
+    // so playback runs at the correct pitch and speed without any per-sample
+    // rate compensation in the audio callback.
+    double effectiveSR = fileSR;
+    if (std::abs (fileSR - sessionSampleRate_) > 0.5 && fileSR > 0.0)
+    {
+        const double ratio       = sessionSampleRate_ / fileSR;
+        const int    newNumSamples = juce::roundToInt (newBuffer.getNumSamples() * ratio);
+
+        if (newNumSamples > 0)
+        {
+            juce::AudioBuffer<float> resampled (numChannels, newNumSamples);
+
+            juce::LagrangeInterpolator interp;
+            for (int ch = 0; ch < numChannels; ++ch)
+            {
+                interp.reset();
+                interp.process (1.0 / ratio,
+                                newBuffer.getReadPointer (ch),
+                                resampled.getWritePointer (ch),
+                                newNumSamples);
+            }
+
+            newBuffer    = std::move (resampled);
+            effectiveSR  = sessionSampleRate_;
+        }
+    }
+    // -------------------------------------------------------------------------
+
     // Swap under write lock so audio-thread readers stay consistent
     {
         juce::ScopedWriteLock writeLock (lock_);
-        buffer_     = std::move (newBuffer);
-        sampleRate_ = sr;
-        sourceFile_ = file;
+        buffer_            = std::move (newBuffer);
+        nativeSampleRate_  = effectiveSR;
+        sourceFile_        = file;
     }
 
     hasAudio_.store (true);
@@ -64,7 +103,7 @@ void SampleBuffer::clear()
 {
     juce::ScopedWriteLock writeLock (lock_);
     buffer_.setSize (0, 0);
-    sampleRate_ = 44100.0;
+    nativeSampleRate_ = 44100.0;
     sourceFile_ = juce::File();
     hasAudio_.store (false);
 }
@@ -80,10 +119,18 @@ void SampleBuffer::getInterpolatedSample (double position,
                                           float& left,
                                           float& right) const
 {
-    juce::ScopedReadLock readLock (lock_);
+    // Use tryEnterRead() so the audio thread never blocks if a write is in
+    // progress (e.g. a new file is being loaded on another thread).
+    // If we cannot acquire the read lock immediately, output silence and return.
+    if (! lock_.tryEnterRead())
+    {
+        left = right = 0.0f;
+        return;
+    }
 
     if (! hasAudio_.load() || buffer_.getNumSamples() == 0)
     {
+        lock_.exitRead();
         left = right = 0.0f;
         return;
     }
@@ -111,6 +158,8 @@ void SampleBuffer::getInterpolatedSample (double position,
         const float* ch = buffer_.getReadPointer (0);
         left = right = ch[pos0] + frac * (ch[pos1] - ch[pos0]);
     }
+
+    lock_.exitRead();
 }
 
 //==============================================================================
@@ -128,7 +177,7 @@ juce::AudioBuffer<float>& SampleBuffer::getBuffer()
 double SampleBuffer::getSampleRate() const
 {
     juce::ScopedReadLock readLock (lock_);
-    return sampleRate_;
+    return nativeSampleRate_;
 }
 
 int SampleBuffer::getNumSamples() const
@@ -146,9 +195,9 @@ int SampleBuffer::getNumChannels() const
 double SampleBuffer::getDurationSeconds() const
 {
     juce::ScopedReadLock readLock (lock_);
-    if (sampleRate_ <= 0.0 || buffer_.getNumSamples() == 0)
+    if (nativeSampleRate_ <= 0.0 || buffer_.getNumSamples() == 0)
         return 0.0;
-    return static_cast<double> (buffer_.getNumSamples()) / sampleRate_;
+    return static_cast<double> (buffer_.getNumSamples()) / nativeSampleRate_;
 }
 
 juce::File SampleBuffer::getSourceFile() const

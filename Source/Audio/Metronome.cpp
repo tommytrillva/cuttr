@@ -60,7 +60,7 @@ void Metronome::processBlock (juce::AudioBuffer<float>& buffer, int numSamples)
         if (inClick)
         {
             const float sample = static_cast<float> (
-                std::sin (clickPhase_) * static_cast<double> (clickGain_));
+                std::sin (clickPhase_) * static_cast<double> (clickGain_ * volume_));
 
             for (int ch = 0; ch < numChannels; ++ch)
                 buffer.getWritePointer (ch)[i] += sample;
@@ -95,6 +95,16 @@ void Metronome::setTimeSignature (int numerator, int denominator)
 void Metronome::setEnabled (bool enabled)
 {
     enabled_ = enabled;
+}
+
+void Metronome::setVolume (float volume)
+{
+    volume_ = juce::jlimit (0.0f, 1.0f, volume);
+}
+
+void Metronome::setPreRollBars (int bars)
+{
+    preRollBars_ = std::max (0, bars);
 }
 
 void Metronome::reset()

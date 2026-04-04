@@ -65,6 +65,23 @@ private:
 
     juce::Label  timeSigLabel_;
 
+    // ---- Metronome on/off toggle ----
+    juce::TextButton metronomeBtn_      { "MET" };
+
+    // ---- Metronome volume knob ----
+    juce::Slider     metronomeVolSlider_;
+    juce::Label      metronomeVolLabel_;
+
+    // ---- Time signature selector ----
+    juce::ComboBox   timeSigCombo_;
+
+    // ---- Half / Double BPM ----
+    juce::TextButton halfBpmBtn_        { "1/2" };
+    juce::TextButton doubleBpmBtn_      { "x2"  };
+
+    // ---- Pre-roll selector ----
+    juce::ComboBox   preRollCombo_;
+
     //==========================================================================
     // Internal state
     bool isGridSize4x8_ { false };   ///< false = 4x4, true = 4x8
