@@ -125,7 +125,6 @@ private:
     juce::ComboBox chokeGroupCombo_;       // "None", "Group 1"…"Group 8"
     juce::Label    chokeGroupLabel_;
 
-    // NOTE: PadSettings has no playMode field yet; this combo is UI-only.
     juce::ComboBox padModeCombo_;          // "One-shot", "Gate", "Loop"
     juce::Label    padModeLabel_;
 

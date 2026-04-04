@@ -59,6 +59,20 @@ public:
 
         /** MP3 target bitrate (ignored for WAV/FLAC). */
         Mp3Quality mp3Quality = Mp3Quality::Kbps320;
+
+        // ---- Metadata (WAV only) -----------------------------------------------
+
+        /** BPM to embed in the ACID tempo chunk.  Set to 0 to omit. */
+        float bpm { 0.0f };
+
+        /** Loop start position in samples.  -1 = no loop markers. */
+        int loopInSample  { -1 };
+
+        /** Loop end position in samples.  -1 = no loop markers. */
+        int loopOutSample { -1 };
+
+        /** Optional cue-point markers (slice positions in samples). */
+        std::vector<int> cuePoints;
     };
 
     //==========================================================================
@@ -110,6 +124,13 @@ private:
      * value (0.0 if the buffer is empty or silent).
      */
     float getPeakLevel (const juce::AudioBuffer<float>& buffer) const;
+
+    /**
+     * Build a StringPairArray containing WAV metadata (ACID tempo chunk,
+     * BWF description, and optional cue points) from the given settings.
+     * Returns an empty array for non-WAV settings (bpm == 0 and no cues).
+     */
+    static juce::StringPairArray buildWavMetadata (const ExportSettings& settings);
 
     //==========================================================================
     juce::AudioFormatManager formatManager_;

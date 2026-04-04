@@ -135,6 +135,15 @@ const juce::AudioBuffer<float>& LoopRecorder::getRecordedBuffer() const
     return recordBuffer_;
 }
 
+void LoopRecorder::setRecordedBuffer (juce::AudioBuffer<float> buffer)
+{
+    // Called from the message thread during state restore.  The audio thread
+    // only writes to recordBuffer_ while isRecording_ is true; state restore
+    // always happens with recording stopped, so the plain assignment is safe.
+    jassert (! isRecording_.load());
+    recordBuffer_ = std::move (buffer);
+}
+
 void LoopRecorder::clearRecording()
 {
     isRecording_.store  (false);

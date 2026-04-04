@@ -57,13 +57,27 @@ void PadVoice::trigger (int                padIndex,
     else
         position_ = static_cast<double> (sliceStart_);
 
+    noteOffPending_.store (false, std::memory_order_relaxed);
     active_.store (true);
 }
 
 //==============================================================================
 void PadVoice::stop()
 {
+    noteOffPending_.store (false, std::memory_order_relaxed);
     active_.store (false);
+}
+
+//==============================================================================
+void PadVoice::noteOff() noexcept
+{
+    if (padSettings_.playMode == PadPlayMode::Gate ||
+        padSettings_.playMode == PadPlayMode::Loop)
+    {
+        // Short fade-out to avoid click (applied over next ~64 samples in render)
+        noteOffPending_.store (true, std::memory_order_relaxed);
+    }
+    // OneShot: ignore note-off, play to end
 }
 
 //==============================================================================
@@ -81,6 +95,25 @@ void PadVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer,
     // load on every sample in the inner loop.
     if (! active_.load (std::memory_order_acquire))
         return;
+
+    // Gate / Loop: if a note-off arrived, apply a short linear fade-out
+    // over the first fadeSamples samples of this block, then silence the rest.
+    if (noteOffPending_.load (std::memory_order_relaxed))
+    {
+        const int fadeSamples = juce::jmin (64, numSamples);
+        const int outChannels = outputBuffer.getNumChannels();
+        for (int ch = 0; ch < outChannels; ++ch)
+        {
+            float* ptr = outputBuffer.getWritePointer (ch, startSample);
+            for (int i = 0; i < fadeSamples; ++i)
+                ptr[i] *= static_cast<float> (fadeSamples - i) / static_cast<float> (fadeSamples);
+            for (int i = fadeSamples; i < numSamples; ++i)
+                ptr[i] = 0.0f;
+        }
+        active_.store (false, std::memory_order_release);
+        noteOffPending_.store (false, std::memory_order_relaxed);
+        return;
+    }
 
     const int outChannels = outputBuffer.getNumChannels();
     if (outChannels == 0)
@@ -151,13 +184,23 @@ void PadVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer,
         {
             position_ -= playbackRate_;
             if (position_ < static_cast<double> (sliceStart_))
-                active_.store (false);
+            {
+                if (padSettings_.playMode == PadPlayMode::Loop)
+                    position_ = static_cast<double> (sliceEnd_ - 1); // wrap to end for reverse loop
+                else
+                    active_.store (false); // OneShot / Gate: deactivate
+            }
         }
         else
         {
             position_ += playbackRate_;
             if (position_ >= static_cast<double> (sliceEnd_))
-                active_.store (false);
+            {
+                if (padSettings_.playMode == PadPlayMode::Loop)
+                    position_ = static_cast<double> (sliceStart_); // wrap back to start
+                else
+                    active_.store (false); // OneShot / Gate: deactivate
+            }
         }
     }
 

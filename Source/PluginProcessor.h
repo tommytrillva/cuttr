@@ -193,6 +193,17 @@ public:
     void  setGlobalPitchOffset (float semitones);
 
     //==========================================================================
+    // Warp subdivision
+    //==========================================================================
+    int  getWarpSubdivision() const noexcept { return warpSubdivision_; }
+    void setWarpSubdivision (int sub) noexcept { warpSubdivision_ = sub; }
+
+    //==========================================================================
+    // Loop recorder access
+    //==========================================================================
+    LoopRecorder& getLoopRecorder() noexcept { return loopRecorder_; }
+
+    //==========================================================================
     // MIDI
     //==========================================================================
     MidiInputManager& getMidiInputManager() { return midiInputManager_; }
@@ -201,6 +212,9 @@ public:
      *  message.  The editor sets this to forward events to MidiMonitorPanel.
      *  Must be cleared (set to nullptr) before the editor is destroyed. */
     std::function<void(const juce::MidiMessage&)> onMidiReceived;
+
+    /** Level metering callback — set by editor, called from processBlock */
+    std::function<void(float, float)> onLevelUpdate;
 
     /** Optional callback invoked on the message thread when background BPM
      *  detection completes.  @p valid is false if detection failed.
@@ -250,6 +264,7 @@ private:
     bool      isPlaying_         { false };
     int       loopInSamples_     { -1 };
     int       loopOutSamples_    { -1 };
+    int       warpSubdivision_   { 4 };  // default 1/4 note
 
     //==========================================================================
     // Listener infrastructure

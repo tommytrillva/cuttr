@@ -58,6 +58,10 @@ public:
     /** Const access to the recorded buffer (valid until clearRecording()). */
     const juce::AudioBuffer<float>& getRecordedBuffer() const;
 
+    /** Replace the recorded buffer (e.g. when restoring state from disk).
+     *  Thread-safe: takes the object lock before swapping. */
+    void setRecordedBuffer (juce::AudioBuffer<float> buffer);
+
     /** Erase the recording and reset all state. */
     void clearRecording();
 

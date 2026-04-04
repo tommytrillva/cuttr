@@ -37,6 +37,48 @@ float AudioFileExporter::getPeakLevel (const juce::AudioBuffer<float>& buffer) c
 }
 
 //==============================================================================
+juce::StringPairArray AudioFileExporter::buildWavMetadata (const ExportSettings& settings)
+{
+    juce::StringPairArray meta;
+
+    // ACID tempo chunk — read by Ableton Live, Logic Pro, Pro Tools, etc.
+    if (settings.bpm > 0.0f)
+    {
+        meta.set (juce::WavAudioFormat::acidTempo,
+                  juce::String (settings.bpm, 4));
+        meta.set (juce::WavAudioFormat::acidIsOneShot, "0");
+        meta.set (juce::WavAudioFormat::acidNumBeats,  "4");
+    }
+
+    // Broadcast WAV description fields (professional convention).
+    meta.set (juce::WavAudioFormat::bextDescription,   "Exported by CHOPPR");
+    meta.set (juce::WavAudioFormat::bextCodingHistory, "CHOPPR VST3");
+
+    // Cue points (slice markers).
+    // JUCE WavAudioFormat writes a 'cue ' chunk when these keys are present.
+    // Keys follow the pattern: "CueIdentifier0", "CueOrder0", "CueLabel0", "CueOffset0"
+    // with a leading "NumCuePoints" count key.
+    if (!settings.cuePoints.empty())
+    {
+        const int numCues = static_cast<int> (settings.cuePoints.size());
+        meta.set (juce::WavAudioFormat::cueNumCuePoints, juce::String (numCues));
+
+        for (int i = 0; i < numCues; ++i)
+        {
+            const juce::String idx (i);
+            meta.set (juce::WavAudioFormat::cueIdentifier + idx, juce::String (i + 1));
+            meta.set (juce::WavAudioFormat::cueOrder      + idx, juce::String (i));
+            meta.set (juce::WavAudioFormat::cueLabel      + idx,
+                      "Slice " + juce::String (i + 1));
+            meta.set (juce::WavAudioFormat::cueOffset     + idx,
+                      juce::String (settings.cuePoints[static_cast<size_t> (i)]));
+        }
+    }
+
+    return meta;
+}
+
+//==============================================================================
 std::unique_ptr<juce::AudioFormatWriter>
 AudioFileExporter::createWriter (const juce::File&     file,
                                   const ExportSettings& settings,
@@ -91,15 +133,20 @@ AudioFileExporter::createWriter (const juce::File&     file,
 
     const int bitsPerSample = static_cast<int> (settings.bitDepth);
 
-    // Build a quality options StringPairArray — used by some formats (e.g. FLAC).
-    juce::StringPairArray qualityOptions;
+    // For WAV, pass a metadata StringPairArray so JUCE writes ACID/BWF/cue chunks.
+    // For all other formats, use an empty options array.
+    juce::StringPairArray formatOptions;
+    const bool isWav = (ext == ".wav" || ext == ".wave" ||
+                        (ext.isEmpty() && settings.format == Format::WAV));
+    if (isWav)
+        formatOptions = buildWavMetadata (settings);
 
     std::unique_ptr<juce::AudioFormatWriter> writer (
         format->createWriterFor (outputStream.get(),
                                  settings.sampleRate,
                                  static_cast<unsigned int> (numChannels),
                                  bitsPerSample,
-                                 qualityOptions,
+                                 formatOptions,
                                  0 /* quality index */));
 
     if (writer != nullptr)

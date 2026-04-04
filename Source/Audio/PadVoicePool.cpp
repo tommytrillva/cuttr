@@ -53,6 +53,14 @@ void PadVoicePool::allNotesOff()
 }
 
 //==============================================================================
+void PadVoicePool::padNoteOff (int padIndex) noexcept
+{
+    for (auto& v : voices_)
+        if (v.isActive() && v.getPadIndex() == padIndex)
+            v.noteOff();
+}
+
+//==============================================================================
 void PadVoicePool::renderNextBlock (juce::AudioBuffer<float>& outputBuffer,
                                     int startSample,
                                     int numSamples,

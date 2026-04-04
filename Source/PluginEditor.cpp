@@ -29,7 +29,8 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
       exportPanel_        (processor),
       presetBrowser_      (processor),
       audioSetupPanel_    (deviceManager_),
-      midiMonitor_        (processor)
+      midiMonitor_        (processor),
+      masterMeter_        (processor)
 {
     setSize (kEditorWidth, kEditorHeight);
     setWantsKeyboardFocus (true);
@@ -115,6 +116,15 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
     };
     addAndMakeVisible (overdubBtn_);
 
+    // ---- Master meter ----
+    addAndMakeVisible (masterMeter_);
+    processor_.onLevelUpdate = [this](float l, float r){ masterMeter_.updateLevels(l, r); };
+
+    // ---- About button ----
+    aboutBtn_.onClick = [this] { AboutPanel::show(this); };
+    aboutBtn_.setTooltip("About CHOPPR");
+    addAndMakeVisible (aboutBtn_);
+
     // ---- Listeners ----
     padGrid_.addListener (this);
     processor_.getChangeListeners().add (this);
@@ -127,6 +137,7 @@ ChopprEditor::~ChopprEditor()
 {
     processor_.onBpmDetected  = nullptr;
     processor_.onMidiReceived = nullptr;
+    processor_.onLevelUpdate  = nullptr;
     processor_.getChangeListeners().remove (this);
     padGrid_.removeListener (this);
 }
@@ -165,6 +176,12 @@ void ChopprEditor::resized()
     // Transport: bottom strip of left column
     transportBar_.setBounds (0, kWaveformHeight + kPadGridHeight,
                               kLeftWidth, kTransportHeight);
+
+    // Master meter: narrow vertical strip on the right edge of the transport bar
+    masterMeter_.setBounds (getWidth() - 28, kWaveformHeight + kPadGridHeight, 24, 80);
+
+    // About button: top-right corner
+    aboutBtn_.setBounds (getWidth() - 26, 2, 22, 22);
 }
 
 //==============================================================================

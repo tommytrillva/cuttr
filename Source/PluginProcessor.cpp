@@ -114,6 +114,17 @@ void ChopprProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     if (isPlaying_)
         loopRecorder_.processBlock (buffer, buffer.getNumSamples(),
                                     metronome_.getBeatPosition());
+
+    // --- Output level metering ---
+    if (onLevelUpdate)
+    {
+        float lPeak = 0.0f, rPeak = 0.0f;
+        if (buffer.getNumChannels() > 0)
+            lPeak = buffer.getMagnitude(0, 0, buffer.getNumSamples());
+        if (buffer.getNumChannels() > 1)
+            rPeak = buffer.getMagnitude(1, 0, buffer.getNumSamples());
+        onLevelUpdate(lPeak, rPeak);
+    }
 }
 
 //==============================================================================
@@ -131,7 +142,7 @@ void ChopprProcessor::getStateInformation (juce::MemoryBlock& dest)
     // Collect current slice points from the slice engine
     const auto& slicePoints = sliceEngine_.getSlices();
 
-    const auto state = stateManager_.saveState (
+    auto state = stateManager_.saveState (
         padVec,
         metronome_.getBPM(),
         currentSliceMode_,
@@ -141,6 +152,34 @@ void ChopprProcessor::getStateInformation (juce::MemoryBlock& dest)
         globalPitchOffset_,
         sampleBuffer_.getSourceFile().getFullPathName(),
         slicePoints);
+
+    // --- Warp subdivision ---
+    state.setProperty ("warpSubdivision", warpSubdivision_, nullptr);
+
+    // --- Loop recording buffer ---
+    const auto& recBuf = loopRecorder_.getRecordedBuffer();
+    if (recBuf.getNumSamples() > 0)
+    {
+        const int maxSamples = juce::roundToInt (getSampleRate() * 30.0);
+        const int samplesToSave = juce::jmin (recBuf.getNumSamples(), maxSamples);
+
+        juce::MemoryOutputStream memStream;
+        juce::WavAudioFormat wavFormat;
+        std::unique_ptr<juce::AudioFormatWriter> writer (
+            wavFormat.createWriterFor (&memStream,
+                                       getSampleRate(),
+                                       static_cast<unsigned int> (recBuf.getNumChannels()),
+                                       16, {}, 0));
+        if (writer != nullptr)
+        {
+            writer->writeFromAudioSampleBuffer (recBuf, 0, samplesToSave);
+            writer->flush();
+            writer.reset();
+            state.setProperty ("recordingData",
+                               memStream.getMemoryBlock().toBase64Encoding(),
+                               nullptr);
+        }
+    }
 
     stateManager_.getStateInformation (state, dest);
 }
@@ -189,6 +228,30 @@ void ChopprProcessor::setStateInformation (const void* data, int sizeInBytes)
             {
                 juce::String err;
                 sampleBuffer_.loadFromFile (f, err);
+            }
+        }
+
+        // --- Warp subdivision ---
+        warpSubdivision_ = static_cast<int> (state.getProperty ("warpSubdivision", 4));
+
+        // --- Loop recording buffer ---
+        const juce::String recData = state.getProperty ("recordingData", "").toString();
+        if (recData.isNotEmpty())
+        {
+            juce::MemoryBlock mb;
+            if (mb.fromBase64Encoding (recData))
+            {
+                juce::MemoryInputStream memIn (mb, false);
+                juce::WavAudioFormat wavFormat;
+                std::unique_ptr<juce::AudioFormatReader> reader (
+                    wavFormat.createReaderFor (&memIn, false));
+                if (reader != nullptr)
+                {
+                    juce::AudioBuffer<float> loaded (static_cast<int> (reader->numChannels),
+                                                     static_cast<int> (reader->lengthInSamples));
+                    reader->read (&loaded, 0, static_cast<int> (reader->lengthInSamples), 0, true, true);
+                    loopRecorder_.setRecordedBuffer (std::move (loaded));
+                }
             }
         }
 
@@ -500,7 +563,7 @@ void ChopprProcessor::triggerPad (int padIndex, float velocity)
 
 void ChopprProcessor::releasePad (int padIndex)
 {
-    voicePool_.stopPad (padIndex);
+    voicePool_.padNoteOff (padIndex);
 }
 
 bool ChopprProcessor::isVoiceActiveForPad (int padIndex) const noexcept

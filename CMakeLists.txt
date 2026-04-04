@@ -38,6 +38,8 @@ set(CHOPPR_SOURCES
     Source/UI/ExportPanel.cpp
     Source/UI/PresetBrowser.cpp
     Source/UI/MidiMonitorPanel.cpp
+    Source/UI/MasterMeterPanel.cpp
+    Source/UI/AboutPanel.cpp
     Source/State/StateManager.cpp
     Source/Util/BPMDetector.cpp
     Source/Util/TransientDetector.cpp

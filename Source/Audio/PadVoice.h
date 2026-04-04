@@ -45,6 +45,10 @@ public:
     /** Hard-stop this voice immediately. */
     void stop();
 
+    /** Called when the MIDI note-off arrives for this pad.
+     *  Gate/Loop modes fade out; OneShot ignores the release. */
+    void noteOff() noexcept;
+
     //==========================================================================
     bool isActive()    const;
     int  getPadIndex() const;
@@ -64,7 +68,8 @@ private:
     int    padIndex_    { -1 };
     int    chokeGroup_  { 0 };
 
-    std::atomic<bool> active_ { false };
+    std::atomic<bool> active_         { false };
+    std::atomic<bool> noteOffPending_ { false };
 
     double position_     { 0.0 };   // current fractional sample read-head
     double playbackRate_ { 1.0 };

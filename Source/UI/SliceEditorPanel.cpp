@@ -178,8 +178,13 @@ SliceEditorPanel::SliceEditorPanel (ChopprProcessor& processor)
     warpSubdivCombo_.addItem ("1/4  (quarter)",   4);
     warpSubdivCombo_.addItem ("1/8  (eighth)",    8);
     warpSubdivCombo_.addItem ("1/16 (sixteenth)", 16);
-    warpSubdivCombo_.setSelectedId (4, juce::dontSendNotification); // default 1/4
+    // Restore persisted value (default 4 = 1/4 note)
+    warpSubdivCombo_.setSelectedId (processor_.getWarpSubdivision(), juce::dontSendNotification);
     styleCombo (warpSubdivCombo_);
+    warpSubdivCombo_.onChange = [this]
+    {
+        processor_.setWarpSubdivision (warpSubdivCombo_.getSelectedId());
+    };
     addAndMakeVisible (warpSubdivCombo_);
 
     styleButton (warpToGridBtn_);
@@ -303,7 +308,7 @@ SliceEditorPanel::SliceEditorPanel (ChopprProcessor& processor)
     };
     addAndMakeVisible (chokeGroupCombo_);
 
-    // Pad play mode  (UI-only; PadSettings has no playMode field yet)
+    // Pad play mode
     styleLabel (padModeLabel_, "Play Mode");
     addAndMakeVisible (padModeLabel_);
 
@@ -312,7 +317,13 @@ SliceEditorPanel::SliceEditorPanel (ChopprProcessor& processor)
     padModeCombo_.addItem ("Loop",     3);
     padModeCombo_.setSelectedId (1, juce::dontSendNotification);
     styleCombo (padModeCombo_);
-    // NOTE: Not wired to processor – PadSettings::playMode does not exist yet.
+    padModeCombo_.onChange = [this]
+    {
+        if (selectedPad_ < 0) return;
+        auto s = processor_.getPadSettings (selectedPad_);
+        s.playMode = static_cast<PadPlayMode> (padModeCombo_.getSelectedId() - 1);
+        processor_.setPadSettings (selectedPad_, s);
+    };
     addAndMakeVisible (padModeCombo_);
 
     // Hide pad section until a pad is actually selected
@@ -498,6 +509,11 @@ void SliceEditorPanel::refreshSliceCount()
     const int n = processor_.getSliceEngine().getNumSlices();
     sliceCountLabel_.setText ("Slices: " + juce::String (n),
                                juce::dontSendNotification);
+
+    // Sync warp subdivision combo from processor (handles state restore)
+    const int sub = processor_.getWarpSubdivision();
+    if (warpSubdivCombo_.getSelectedId() != sub)
+        warpSubdivCombo_.setSelectedId (sub, juce::dontSendNotification);
 }
 
 //==============================================================================
@@ -540,6 +556,10 @@ void SliceEditorPanel::padSelected (int padIndex)
                           ? s.chokeGroup + 1
                           : 1;
         chokeGroupCombo_.setSelectedId (chokeId, juce::dontSendNotification);
+
+        // playMode: OneShot=0 -> id 1, Gate=1 -> id 2, Loop=2 -> id 3
+        padModeCombo_.setSelectedId (static_cast<int> (s.playMode) + 1,
+                                     juce::dontSendNotification);
     }
 
     resized();

@@ -42,6 +42,10 @@ public:
     /** Stop all active voices for the given pad index. */
     void stopPad (int padIndex);
 
+    /** Send a note-off to all active voices for the given pad.
+     *  Gate/Loop voices fade out; OneShot voices ignore it. */
+    void padNoteOff (int padIndex) noexcept;
+
     /** Stop all voices immediately. */
     void allNotesOff();
 

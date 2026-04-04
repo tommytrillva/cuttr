@@ -11,6 +11,8 @@
 #include "UI/ExportPanel.h"
 #include "UI/PresetBrowser.h"
 #include "UI/MidiMonitorPanel.h"
+#include "UI/MasterMeterPanel.h"
+#include "UI/AboutPanel.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -99,6 +101,12 @@ private:
 
     // --- Overdub toggle ---
     juce::TextButton overdubBtn_ { "OVERDUB" };
+
+    // --- Master output meter ---
+    MasterMeterPanel masterMeter_;
+
+    // --- About button ---
+    juce::TextButton aboutBtn_ { "?" };
 
     // --- BPM detection status ---
     juce::Label bpmStatusLabel_;

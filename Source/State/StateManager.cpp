@@ -18,10 +18,13 @@ namespace IDs
     static const juce::Identifier pitchMode       ("pitchMode");
     static const juce::Identifier globalPitchOffset ("globalPitchOffset");
     static const juce::Identifier sampleFilePath  ("sampleFilePath");
+    static const juce::Identifier warpSubdivision ("warpSubdivision");
+    static const juce::Identifier recordingData   ("recordingData");
 
     // Per-pad properties
     static const juce::Identifier sliceIndex      ("sliceIndex");
     static const juce::Identifier pitchOffsetSemitones ("pitchOffsetSemitones");
+    static const juce::Identifier fineTuneCents   ("fineTuneCents");
     static const juce::Identifier volume          ("volume");
     static const juce::Identifier pan             ("pan");
     static const juce::Identifier chokeGroup      ("chokeGroup");
@@ -66,6 +69,7 @@ juce::ValueTree StateManager::saveState (
         juce::ValueTree padVt (IDs::Pad);
         padVt.setProperty (IDs::sliceIndex,           pad.sliceIndex,                         nullptr);
         padVt.setProperty (IDs::pitchOffsetSemitones, pad.pitchOffsetSemitones,               nullptr);
+        padVt.setProperty (IDs::fineTuneCents,        pad.fineTuneCents,                      nullptr);
         padVt.setProperty (IDs::volume,               pad.volume,                             nullptr);
         padVt.setProperty (IDs::pan,                  pad.pan,                                nullptr);
         padVt.setProperty (IDs::chokeGroup,           pad.chokeGroup,                         nullptr);
@@ -128,6 +132,7 @@ bool StateManager::loadState (
             PadSettings pad;
             pad.sliceIndex           = static_cast<int>   (padVt.getProperty (IDs::sliceIndex,           i));
             pad.pitchOffsetSemitones = static_cast<float> (padVt.getProperty (IDs::pitchOffsetSemitones, 0.0f));
+            pad.fineTuneCents        = static_cast<float> (padVt.getProperty (IDs::fineTuneCents,        0.0f));
             pad.volume               = static_cast<float> (padVt.getProperty (IDs::volume,               1.0f));
             pad.pan                  = static_cast<float> (padVt.getProperty (IDs::pan,                  0.0f));
             pad.chokeGroup           = static_cast<int>   (padVt.getProperty (IDs::chokeGroup,            0));

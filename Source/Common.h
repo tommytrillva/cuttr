@@ -35,6 +35,13 @@ enum class GridSize
     Grid4x8 = 32
 };
 
+enum class PadPlayMode
+{
+    OneShot = 0,  // plays full slice to end regardless of note-off
+    Gate,         // plays while MIDI note held, stops on note-off
+    Loop          // loops the slice while held, stops on note-off
+};
+
 struct SlicePoint
 {
     int samplePosition = 0;
@@ -54,6 +61,7 @@ struct PadSettings
     bool solo = false;
     TimeStretchMode stretchMode = TimeStretchMode::None;
     float stretchRatio = 1.0f;          // Manual stretch ratio (PerPad/Free modes)
+    PadPlayMode playMode { PadPlayMode::OneShot };
 };
 
 static constexpr int kMaxPads   = 32;

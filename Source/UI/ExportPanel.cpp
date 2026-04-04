@@ -214,6 +214,21 @@ AudioFileExporter::ExportSettings ExportPanel::buildSettings (const juce::File& 
         settings.mp3Quality = static_cast<AudioFileExporter::Mp3Quality> (
             mp3BitrateCombo_.getSelectedId());
 
+    // ---- WAV metadata --------------------------------------------------------
+    // Only meaningful for WAV exports, but safe to populate for all formats
+    // (AudioFileExporter ignores these fields for non-WAV outputs).
+    settings.bpm           = processor_.getBPM();
+    settings.loopInSample  = processor_.getLoopIn();
+    settings.loopOutSample = processor_.getLoopOut();
+
+    // Embed slice positions as cue-point markers.
+    {
+        const auto& slices = processor_.getSliceEngine().getSlices();
+        settings.cuePoints.reserve (slices.size());
+        for (const auto& s : slices)
+            settings.cuePoints.push_back (s.samplePosition);
+    }
+
     return settings;
 }
 
