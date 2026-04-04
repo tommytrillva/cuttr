@@ -34,6 +34,27 @@ namespace IDs
     static const juce::Identifier padStretchMode  ("padStretchMode");
     static const juce::Identifier stretchRatio    ("stretchRatio");
 
+    // Per-pad playMode property
+    static const juce::Identifier playMode        ("playMode");
+
+    // Per-pad FX properties
+    static const juce::Identifier fxFilterEnabled   ("fxFilterEnabled");
+    static const juce::Identifier fxFilterType      ("fxFilterType");
+    static const juce::Identifier fxFilterCutoff    ("fxFilterCutoff");
+    static const juce::Identifier fxFilterResonance ("fxFilterResonance");
+    static const juce::Identifier fxDistEnabled     ("fxDistEnabled");
+    static const juce::Identifier fxDistDrive       ("fxDistDrive");
+    static const juce::Identifier fxDistMix         ("fxDistMix");
+    static const juce::Identifier fxRevEnabled      ("fxRevEnabled");
+    static const juce::Identifier fxRevRoomSize     ("fxRevRoomSize");
+    static const juce::Identifier fxRevDamping      ("fxRevDamping");
+    static const juce::Identifier fxRevWidth        ("fxRevWidth");
+    static const juce::Identifier fxRevMix          ("fxRevMix");
+    static const juce::Identifier fxDelEnabled      ("fxDelEnabled");
+    static const juce::Identifier fxDelTimeMs       ("fxDelTimeMs");
+    static const juce::Identifier fxDelFeedback     ("fxDelFeedback");
+    static const juce::Identifier fxDelMix          ("fxDelMix");
+
     // Per-slice properties
     static const juce::Identifier samplePosition  ("samplePosition");
     static const juce::Identifier isLocked        ("isLocked");
@@ -78,6 +99,25 @@ juce::ValueTree StateManager::saveState (
         padVt.setProperty (IDs::solo,                 pad.solo,                               nullptr);
         padVt.setProperty (IDs::padStretchMode,       static_cast<int> (pad.stretchMode),     nullptr);
         padVt.setProperty (IDs::stretchRatio,         pad.stretchRatio,                       nullptr);
+
+        // FX
+        padVt.setProperty (IDs::fxFilterEnabled,   pad.fx.filterEnabled,    nullptr);
+        padVt.setProperty (IDs::fxFilterType,      pad.fx.filterType,       nullptr);
+        padVt.setProperty (IDs::fxFilterCutoff,    pad.fx.filterCutoff,     nullptr);
+        padVt.setProperty (IDs::fxFilterResonance, pad.fx.filterResonance,  nullptr);
+        padVt.setProperty (IDs::fxDistEnabled,     pad.fx.distortionEnabled, nullptr);
+        padVt.setProperty (IDs::fxDistDrive,       pad.fx.distortionDrive,  nullptr);
+        padVt.setProperty (IDs::fxDistMix,         pad.fx.distortionMix,    nullptr);
+        padVt.setProperty (IDs::fxRevEnabled,      pad.fx.reverbEnabled,    nullptr);
+        padVt.setProperty (IDs::fxRevRoomSize,     pad.fx.reverbRoomSize,   nullptr);
+        padVt.setProperty (IDs::fxRevDamping,      pad.fx.reverbDamping,    nullptr);
+        padVt.setProperty (IDs::fxRevWidth,        pad.fx.reverbWidth,      nullptr);
+        padVt.setProperty (IDs::fxRevMix,          pad.fx.reverbMix,        nullptr);
+        padVt.setProperty (IDs::fxDelEnabled,      pad.fx.delayEnabled,     nullptr);
+        padVt.setProperty (IDs::fxDelTimeMs,       pad.fx.delayTimeMs,      nullptr);
+        padVt.setProperty (IDs::fxDelFeedback,     pad.fx.delayFeedback,    nullptr);
+        padVt.setProperty (IDs::fxDelMix,          pad.fx.delayMix,         nullptr);
+
         padsVt.addChild (padVt, -1, nullptr);
     }
     root.addChild (padsVt, -1, nullptr);
@@ -141,6 +181,25 @@ bool StateManager::loadState (
             pad.solo                 = static_cast<bool>  (padVt.getProperty (IDs::solo,                 false));
             pad.stretchMode          = static_cast<TimeStretchMode> ((int) padVt.getProperty (IDs::padStretchMode, 0));
             pad.stretchRatio         = static_cast<float> (padVt.getProperty (IDs::stretchRatio,         1.0f));
+
+            // FX
+            pad.fx.filterEnabled     = (bool)  padVt.getProperty (IDs::fxFilterEnabled,   false);
+            pad.fx.filterType        = (int)   padVt.getProperty (IDs::fxFilterType,      0);
+            pad.fx.filterCutoff      = (float) padVt.getProperty (IDs::fxFilterCutoff,    8000.0f);
+            pad.fx.filterResonance   = (float) padVt.getProperty (IDs::fxFilterResonance, 0.707f);
+            pad.fx.distortionEnabled = (bool)  padVt.getProperty (IDs::fxDistEnabled,     false);
+            pad.fx.distortionDrive   = (float) padVt.getProperty (IDs::fxDistDrive,       2.0f);
+            pad.fx.distortionMix     = (float) padVt.getProperty (IDs::fxDistMix,         1.0f);
+            pad.fx.reverbEnabled     = (bool)  padVt.getProperty (IDs::fxRevEnabled,      false);
+            pad.fx.reverbRoomSize    = (float) padVt.getProperty (IDs::fxRevRoomSize,     0.5f);
+            pad.fx.reverbDamping     = (float) padVt.getProperty (IDs::fxRevDamping,      0.5f);
+            pad.fx.reverbWidth       = (float) padVt.getProperty (IDs::fxRevWidth,        1.0f);
+            pad.fx.reverbMix         = (float) padVt.getProperty (IDs::fxRevMix,          0.3f);
+            pad.fx.delayEnabled      = (bool)  padVt.getProperty (IDs::fxDelEnabled,      false);
+            pad.fx.delayTimeMs       = (float) padVt.getProperty (IDs::fxDelTimeMs,       250.0f);
+            pad.fx.delayFeedback     = (float) padVt.getProperty (IDs::fxDelFeedback,     0.4f);
+            pad.fx.delayMix          = (float) padVt.getProperty (IDs::fxDelMix,          0.3f);
+
             pads.push_back (pad);
         }
     }

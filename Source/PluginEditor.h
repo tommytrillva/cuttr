@@ -13,6 +13,7 @@
 #include "UI/MidiMonitorPanel.h"
 #include "UI/MasterMeterPanel.h"
 #include "UI/AboutPanel.h"
+#include "UI/PadFxPanel.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
@@ -94,6 +95,7 @@ private:
     AudioSetupPanel          audioSetupPanel_;
 
     MidiMonitorPanel         midiMonitor_;
+    PadFxPanel               padFxPanel_;
 
     // --- File loading ---
     juce::TextButton                   loadSampleBtn_ { "Load Sample" };

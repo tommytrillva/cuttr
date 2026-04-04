@@ -40,6 +40,7 @@ set(CHOPPR_SOURCES
     Source/UI/MidiMonitorPanel.cpp
     Source/UI/MasterMeterPanel.cpp
     Source/UI/AboutPanel.cpp
+    Source/UI/PadFxPanel.cpp
     Source/State/StateManager.cpp
     Source/Util/BPMDetector.cpp
     Source/Util/TransientDetector.cpp

@@ -48,6 +48,35 @@ struct SlicePoint
     bool isLocked = false;  // User-locked slices won't be moved by auto-detect
 };
 
+//==============================================================================
+/** Per-pad insert FX parameters. */
+struct PadFxSettings
+{
+    // ── Filter ──────────────────────────────────────────────────────────────
+    bool  filterEnabled   { false };
+    int   filterType      { 0 };       // 0=LowPass 1=HighPass 2=BandPass 3=Notch
+    float filterCutoff    { 8000.0f }; // Hz  (20 – 20000)
+    float filterResonance { 0.707f };  // Q   (0.1 – 10)
+
+    // ── Distortion ──────────────────────────────────────────────────────────
+    bool  distortionEnabled { false };
+    float distortionDrive   { 2.0f };  // 1 – 20
+    float distortionMix     { 1.0f };  // 0 – 1  (wet/dry)
+
+    // ── Reverb ──────────────────────────────────────────────────────────────
+    bool  reverbEnabled  { false };
+    float reverbRoomSize { 0.5f };     // 0 – 1
+    float reverbDamping  { 0.5f };     // 0 – 1
+    float reverbWidth    { 1.0f };     // 0 – 1
+    float reverbMix      { 0.3f };     // 0 – 1  (wet/dry)
+
+    // ── Delay ────────────────────────────────────────────────────────────────
+    bool  delayEnabled   { false };
+    float delayTimeMs    { 250.0f };   // 1 – 2000 ms
+    float delayFeedback  { 0.4f };     // 0 – 0.95
+    float delayMix       { 0.3f };     // 0 – 1  (wet/dry)
+};
+
 struct PadSettings
 {
     int sliceIndex = -1;                // Which slice this pad plays (-1 = unassigned)
@@ -62,6 +91,7 @@ struct PadSettings
     TimeStretchMode stretchMode = TimeStretchMode::None;
     float stretchRatio = 1.0f;          // Manual stretch ratio (PerPad/Free modes)
     PadPlayMode playMode { PadPlayMode::OneShot };
+    PadFxSettings fx;
 };
 
 static constexpr int kMaxPads   = 32;

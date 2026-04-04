@@ -5,6 +5,8 @@
 #include "SliceEngine.h"
 #include "PitchShiftEngine.h"
 
+#include <juce_dsp/juce_dsp.h>
+#include <vector>
 #include <atomic>
 
 //==============================================================================
@@ -64,6 +66,7 @@ public:
                           const SampleBuffer& sample);
 
 private:
+    void applyFx (juce::AudioBuffer<float>& buffer, int startSample, int numSamples);
     //==========================================================================
     int    padIndex_    { -1 };
     int    chokeGroup_  { 0 };
@@ -86,4 +89,16 @@ private:
 
     PadSettings       padSettings_;   // Copy of settings from last trigger()
     PitchShiftEngine  pitchEngine_;   // Per-voice pitch shift engine
+
+    // ── Per-voice FX chain state ─────────────────────────────────────────────
+    juce::dsp::StateVariableTPTFilter<float> filter_;
+    juce::dsp::Reverb                        reverb_;
+
+    // Delay line (stereo, max 2 seconds)
+    static constexpr int kMaxDelaySamples = 96001; // 2s at 48kHz
+    std::array<float, kMaxDelaySamples> delayBufL_ {};
+    std::array<float, kMaxDelaySamples> delayBufR_ {};
+    int   delayWritePos_ { 0 };
+    float delayLastL_    { 0.0f };
+    float delayLastR_    { 0.0f };
 };

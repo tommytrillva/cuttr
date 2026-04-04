@@ -10,6 +10,16 @@ void PadVoice::prepare (double sampleRate, int blockSize)
     position_    = 0.0;
     playbackRate_ = 1.0;
     pitchEngine_.prepare (sampleRate, blockSize);
+
+    juce::dsp::ProcessSpec spec;
+    spec.sampleRate       = sampleRate;
+    spec.maximumBlockSize = (uint32) blockSize;
+    spec.numChannels      = 2;
+
+    filter_.prepare (spec);
+    filter_.reset();
+
+    reverb_.reset();
 }
 
 //==============================================================================
@@ -59,6 +69,14 @@ void PadVoice::trigger (int                padIndex,
 
     noteOffPending_.store (false, std::memory_order_relaxed);
     active_.store (true);
+
+    // Reset FX state so stale reverb tails / delay echoes don't bleed into
+    // a newly-triggered voice on this pad.
+    filter_.reset();
+    reverb_.reset();
+    delayWritePos_ = 0;
+    delayBufL_.fill (0.0f);
+    delayBufR_.fill (0.0f);
 }
 
 //==============================================================================
@@ -215,6 +233,117 @@ void PadVoice::renderNextBlock (juce::AudioBuffer<float>& outputBuffer,
                 outputBuffer.getWritePointer (ch, startSample),
                 tempBuf.getReadPointer (ch),
                 numSamples);
+        }
+    }
+
+    // Apply per-pad FX chain (Filter, Distortion, Reverb, Delay)
+    applyFx (outputBuffer, startSample, numSamples);
+}
+
+//==============================================================================
+void PadVoice::applyFx (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
+{
+    // Read FX settings from the current pad
+    const auto& fx = padSettings_.fx;
+    const int numCh = buffer.getNumChannels();
+
+    // ── Filter ───────────────────────────────────────────────────────────
+    if (fx.filterEnabled)
+    {
+        using SVFType = juce::dsp::StateVariableTPTFilterType;
+        switch (fx.filterType)
+        {
+            case 1:  filter_.setType (SVFType::highpass);  break;
+            case 2:  filter_.setType (SVFType::bandpass);  break;
+            default: filter_.setType (SVFType::lowpass);   break;
+            // Note: JUCE 7 StateVariableTPTFilter doesn't have notch directly;
+            // use lowpass for type 3 as fallback
+        }
+        filter_.setCutoffFrequency (juce::jlimit (20.0f, 20000.0f, fx.filterCutoff));
+        filter_.setResonance       (juce::jlimit (0.1f,  10.0f,   fx.filterResonance));
+
+        for (int ch = 0; ch < numCh; ++ch)
+        {
+            float* data = buffer.getWritePointer (ch, startSample);
+            for (int i = 0; i < numSamples; ++i)
+                data[i] = filter_.processSample (ch % 2, data[i]);
+        }
+    }
+
+    // ── Distortion ───────────────────────────────────────────────────────
+    if (fx.distortionEnabled)
+    {
+        const float drive    = juce::jlimit (1.0f, 20.0f, fx.distortionDrive);
+        const float wetGain  = juce::jlimit (0.0f, 1.0f,  fx.distortionMix);
+        const float dryGain  = 1.0f - wetGain;
+        // Normalise so output doesn't exceed 0dBFS
+        const float normGain = 1.0f / std::tanh (drive);
+
+        for (int ch = 0; ch < numCh; ++ch)
+        {
+            float* data = buffer.getWritePointer (ch, startSample);
+            for (int i = 0; i < numSamples; ++i)
+            {
+                const float dry = data[i];
+                const float wet = std::tanh (drive * dry) * normGain;
+                data[i] = dryGain * dry + wetGain * wet;
+            }
+        }
+    }
+
+    // ── Reverb ───────────────────────────────────────────────────────────
+    if (fx.reverbEnabled)
+    {
+        juce::dsp::Reverb::Parameters p;
+        p.roomSize   = juce::jlimit (0.0f, 1.0f, fx.reverbRoomSize);
+        p.damping    = juce::jlimit (0.0f, 1.0f, fx.reverbDamping);
+        p.width      = juce::jlimit (0.0f, 1.0f, fx.reverbWidth);
+        p.wetLevel   = juce::jlimit (0.0f, 1.0f, fx.reverbMix);
+        p.dryLevel   = 1.0f - p.wetLevel;
+        p.freezeMode = 0.0f;
+        reverb_.setParameters (p);
+
+        if (numCh >= 2)
+        {
+            reverb_.processStereo (
+                buffer.getWritePointer (0, startSample),
+                buffer.getWritePointer (1, startSample),
+                numSamples);
+        }
+        else if (numCh == 1)
+        {
+            reverb_.processMono (buffer.getWritePointer (0, startSample), numSamples);
+        }
+    }
+
+    // ── Delay ────────────────────────────────────────────────────────────
+    if (fx.delayEnabled)
+    {
+        const float wetGain = juce::jlimit (0.0f, 1.0f, fx.delayMix);
+        const float dryGain = 1.0f - wetGain;
+        const float fb      = juce::jlimit (0.0f, 0.95f, fx.delayFeedback);
+
+        const int delaySamples = juce::jlimit (1,
+            kMaxDelaySamples - 1,
+            juce::roundToInt (fx.delayTimeMs * 0.001f * (float) sampleRate_));
+
+        float* chL = buffer.getWritePointer (0, startSample);
+        float* chR = (numCh > 1) ? buffer.getWritePointer (1, startSample) : chL;
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            int readPos = (delayWritePos_ - delaySamples + kMaxDelaySamples) % kMaxDelaySamples;
+
+            const float dL = delayBufL_[readPos];
+            const float dR = delayBufR_[readPos];
+
+            delayBufL_[delayWritePos_] = chL[i] + fb * dL;
+            delayBufR_[delayWritePos_] = chR[i] + fb * dR;
+
+            chL[i] = dryGain * chL[i] + wetGain * dL;
+            chR[i] = dryGain * chR[i] + wetGain * dR;
+
+            delayWritePos_ = (delayWritePos_ + 1) % kMaxDelaySamples;
         }
     }
 }

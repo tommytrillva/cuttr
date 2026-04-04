@@ -30,7 +30,8 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
       presetBrowser_      (processor),
       audioSetupPanel_    (deviceManager_),
       midiMonitor_        (processor),
-      masterMeter_        (processor)
+      masterMeter_        (processor),
+      padFxPanel_         (processor)
 {
     setSize (kEditorWidth, kEditorHeight);
     setWantsKeyboardFocus (true);
@@ -83,6 +84,7 @@ ChopprEditor::ChopprEditor (ChopprProcessor& processor)
     rightPanel_.addTab ("Presets",  kPanelBg, &presetBrowser_,     false);
     rightPanel_.addTab ("Audio",    kPanelBg, &audioSetupPanel_,   false);
     rightPanel_.addTab ("MIDI",     kPanelBg, &midiMonitor_,       false);
+    rightPanel_.addTab ("FX",       kPanelBg, &padFxPanel_,        false);
     rightPanel_.setCurrentTabIndex (0);
     addAndMakeVisible (rightPanel_);
 
@@ -206,6 +208,7 @@ void ChopprEditor::padSelected (int padIndex)
 {
     selectedPad_ = padIndex;
     updatePadGridSelection();
+    padFxPanel_.padSelected (padIndex);
 
     // Switch to Slice tab so the user can edit per-pad settings
     rightPanel_.setCurrentTabIndex (0);
