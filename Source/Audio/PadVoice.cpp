@@ -13,12 +13,13 @@ void PadVoice::prepare (double sampleRate, int blockSize)
 
     juce::dsp::ProcessSpec spec;
     spec.sampleRate       = sampleRate;
-    spec.maximumBlockSize = (uint32) blockSize;
+    spec.maximumBlockSize = static_cast<juce::uint32> (blockSize);
     spec.numChannels      = 2;
 
     filter_.prepare (spec);
     filter_.reset();
 
+    reverb_.setSampleRate (sampleRate);
     reverb_.reset();
 }
 
@@ -294,7 +295,7 @@ void PadVoice::applyFx (juce::AudioBuffer<float>& buffer, int startSample, int n
     // ── Reverb ───────────────────────────────────────────────────────────
     if (fx.reverbEnabled)
     {
-        juce::dsp::Reverb::Parameters p;
+        juce::Reverb::Parameters p;
         p.roomSize   = juce::jlimit (0.0f, 1.0f, fx.reverbRoomSize);
         p.damping    = juce::jlimit (0.0f, 1.0f, fx.reverbDamping);
         p.width      = juce::jlimit (0.0f, 1.0f, fx.reverbWidth);

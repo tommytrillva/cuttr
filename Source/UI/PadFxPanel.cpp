@@ -75,26 +75,25 @@ PadFxPanel::PadFxPanel (ChopprProcessor& processor)
     delFeedback_.onValueChange     = save;
     delMix_.onValueChange          = save;
 
-    // Add all children
-    for (auto* c : { (juce::Component*)&filterHeader_,
-                     &filterEnable_, &filterTypeCombo_,
-                     &filterCutoff_, &filterCutoffLabel_,
-                     &filterRes_,    &filterResLabel_,
-                     &distHeader_,
-                     &distEnable_,
-                     &distDrive_,    &distDriveLabel_,
-                     &distMix_,      &distMixLabel_,
-                     &reverbHeader_,
-                     &revEnable_,
-                     &revRoom_,      &revRoomLabel_,
-                     &revDamp_,      &revDampLabel_,
-                     &revWidth_,     &revWidthLabel_,
-                     &revMix_,       &revMixLabel_,
-                     &delayHeader_,
-                     &delEnable_,
-                     &delTime_,      &delTimeLabel_,
-                     &delFeedback_,  &delFeedLabel_,
-                     &delMix_,       &delMixLabel_ })
+    // Add all children (explicit juce::Component* to satisfy MSVC mixed-type initializer list)
+    juce::Component* const children[] = {
+        &filterHeader_,    &filterEnable_,    &filterTypeCombo_,
+        &filterCutoff_,    &filterCutoffLabel_,
+        &filterRes_,       &filterResLabel_,
+        &distHeader_,      &distEnable_,
+        &distDrive_,       &distDriveLabel_,
+        &distMix_,         &distMixLabel_,
+        &reverbHeader_,    &revEnable_,
+        &revRoom_,         &revRoomLabel_,
+        &revDamp_,         &revDampLabel_,
+        &revWidth_,        &revWidthLabel_,
+        &revMix_,          &revMixLabel_,
+        &delayHeader_,     &delEnable_,
+        &delTime_,         &delTimeLabel_,
+        &delFeedback_,     &delFeedLabel_,
+        &delMix_,          &delMixLabel_
+    };
+    for (auto* c : children)
         addAndMakeVisible (c);
 }
 

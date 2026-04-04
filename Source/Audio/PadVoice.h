@@ -92,7 +92,7 @@ private:
 
     // ── Per-voice FX chain state ─────────────────────────────────────────────
     juce::dsp::StateVariableTPTFilter<float> filter_;
-    juce::dsp::Reverb                        reverb_;
+    juce::Reverb                             reverb_;
 
     // Delay line (stereo, max 2 seconds)
     static constexpr int kMaxDelaySamples = 96001; // 2s at 48kHz
